@@ -32,4 +32,4 @@ airlock = "airlock.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-airlock = ["eval/dataset/*.jsonl"]
+airlock = ["data/*.jsonl"]

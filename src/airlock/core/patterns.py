@@ -67,18 +67,27 @@ INSTALL_PATTERNS: List[Pattern] = [
 # --- Credential / secret access, matched by PATH not vocabulary -------------
 # Provenance-flavoured: these are the concrete locations secrets live. A hit
 # marks the READ content as secret material for the egress matcher.
+#
+# The left anchor is a negative-lookbehind ``(?<!\w)`` rather than ``(?:^|/)``.
+# Actions are flattened to a newline-joined string before matching, so a bare
+# RELATIVE path (``.env``, ``.aws/credentials``, ``id_rsa`` — the common case
+# when the agent runs inside the project dir) sits after a ``\n``, which the
+# old start-or-slash anchor never matched. That silently failed to fingerprint
+# the read, so a later exfil of that secret was MISSED. ``(?<!\w)`` matches at
+# string start, after ``/``, and after whitespace/newline/quote, while still
+# rejecting ``foo.env`` / ``myid_rsa`` (preceded by a word char).
 CREDENTIAL_PATH_PATTERNS: List[Pattern] = [
-    _c(r"(?:^|/)\.env(?:\.[\w-]+)?\b"),
-    _c(r"(?:^|/)\.ssh/"),
-    _c(r"(?:^|/)id_(?:rsa|ed25519|ecdsa|dsa)\b"),
-    _c(r"(?:^|/)\.aws/credentials\b"),
-    _c(r"(?:^|/)\.aws/config\b"),
-    _c(r"(?:^|/)\.netrc\b"),
-    _c(r"(?:^|/)\.npmrc\b"),
-    _c(r"(?:^|/)\.pypirc\b"),
-    _c(r"(?:^|/)\.git-credentials\b"),
-    _c(r"(?:^|/)\.kube/config\b"),
-    _c(r"(?:^|/)\.docker/config\.json\b"),
+    _c(r"(?<!\w)\.env(?:\.[\w-]+)?\b"),
+    _c(r"(?<!\w)\.ssh/"),
+    _c(r"(?<!\w)id_(?:rsa|ed25519|ecdsa|dsa)\b"),
+    _c(r"(?<!\w)\.aws/credentials\b"),
+    _c(r"(?<!\w)\.aws/config\b"),
+    _c(r"(?<!\w)\.netrc\b"),
+    _c(r"(?<!\w)\.npmrc\b"),
+    _c(r"(?<!\w)\.pypirc\b"),
+    _c(r"(?<!\w)\.git-credentials\b"),
+    _c(r"(?<!\w)\.kube/config\b"),
+    _c(r"(?<!\w)\.docker/config\.json\b"),
     _c(r"\b\w*(?:secret|token|apikey|api_key|private_key|credential)s?\.(?:json|ya?ml|txt|pem|key)\b"),
     _c(r"\bkeychain\b"),
 ]

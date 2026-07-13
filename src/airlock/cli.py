@@ -1,12 +1,16 @@
 r"""``airlock`` command-line interface.
 
-Phase 1 ships one command: ``airlock report`` — READ-ONLY, ZERO CONFIG. It
-replays a Claude Code session/hook log through the policy engine and prints what
-the agent has been doing, in the style of the pitch's first-60-seconds report.
-It cannot block, cannot break anything, and makes no network calls of its own.
+Commands (all READ-ONLY, ZERO CONFIG to start, no network of their own):
 
-Later phases (``run``, ``digest``, ``eval``) are intentionally NOT here yet;
-this CLI never advertises a command it does not implement.
+  * ``airlock report`` — the first-60-seconds summary of what the agent has been
+    doing, replayed from its existing logs (Phase 1).
+  * ``airlock digest`` — a short session receipt that leads with what Airlock
+    *let through and why that was safe*, not only what it flagged (Phase 2).
+  * ``airlock learn``  — observe the user's own past sessions and write a
+    human-editable allow-policy that suppresses known-normal activity (Phase 2).
+
+``run``/``eval`` are intentionally NOT here yet; this CLI never advertises a
+command it does not implement.
 """
 
 from __future__ import annotations
@@ -19,13 +23,24 @@ from collections import OrderedDict
 from typing import Dict, List, Optional
 
 from . import __version__
+from . import policy as policymod
 from .core.action import Action, ActionKind
+from .digest import analyze, render_digest
 from .engine import Decision, PolicyEngine, Verdict
 from .logparse import parse_log
+from .policy import Policy
 
-_DEFAULT_FIXTURE = os.path.join(
-    os.path.dirname(__file__), "..", "..", "tests", "fixtures", "sample_session.jsonl"
-)
+def _default_fixture() -> str:
+    packaged = os.path.join(os.path.dirname(__file__), "data", "sample_session.jsonl")
+    if os.path.exists(packaged):
+        return packaged
+    return os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "tests",
+                     "fixtures", "sample_session.jsonl")
+    )
+
+
+_DEFAULT_FIXTURE = _default_fixture()
 _DOMAIN_RE = re.compile(r"https?://([^/\s:]+)", re.IGNORECASE)
 
 
@@ -53,8 +68,16 @@ def _fmt_paths(paths: List[str], limit: int = 3) -> str:
     return s
 
 
-def build_report(actions: List[Action]) -> Dict[str, object]:
-    """Run the engine over the actions and tally the report. Pure aggregation."""
+def build_report(actions: List[Action], policy: Optional[Policy] = None) -> Dict[str, object]:
+    """Run the engine over the actions and tally the report. Pure aggregation.
+
+    When a learned ``policy`` is supplied, actions it explains as known-normal
+    are pulled OUT of the tallies (and counted under ``suppressed``) so the
+    report shows the anomalies, not the routine. With ``policy=None`` — the
+    zero-config default — nothing is suppressed and the output is unchanged.
+    A policy can never suppress a taint hit, an escalation, or an irreversible
+    action; that invariant lives in :func:`airlock.policy.suppression`.
+    """
     engine = PolicyEngine()
     cred_reads: List[str] = []
     domains: "OrderedDict[str, int]" = OrderedDict()
@@ -63,11 +86,16 @@ def build_report(actions: List[Action]) -> Dict[str, object]:
     escalations: List[Decision] = []
     notify = 0
     blocked = 0
+    suppressed = 0
     decisions: List[Decision] = []
 
     for act in actions:
         d = engine.evaluate(act)
         decisions.append(d)
+
+        if policymod.suppression(act, d, policy) is not None:
+            suppressed += 1
+            continue
 
         if ActionKind.CREDENTIAL_ACCESS in d.kinds:
             cred_reads.extend(_credential_paths(act))
@@ -94,6 +122,7 @@ def build_report(actions: List[Action]) -> Dict[str, object]:
         "escalations": escalations,
         "notify": notify,
         "blocked": blocked,
+        "suppressed": suppressed,
         "engine": engine,
         "decisions": decisions,
     }
@@ -179,6 +208,12 @@ def render_report(rep: Dict[str, object], source_label: str) -> str:
             rep["notify"], rep["blocked"]
         )
     )
+    if rep.get("suppressed"):
+        lines.append(
+            "  {} known-normal action(s) suppressed by your policy (observe-only).".format(
+                rep["suppressed"]
+            )
+        )
     lines.append("")
     lines.append('  Want Airlock to watch the next one?   airlock run -- claude "..."')
     lines.append("  (unattended mode ships in a later phase; report is read-only today.)")
@@ -186,23 +221,55 @@ def render_report(rep: Dict[str, object], source_label: str) -> str:
     return "\n".join(lines)
 
 
-def cmd_report(args: argparse.Namespace) -> int:
-    log_path = args.log or os.path.normpath(_DEFAULT_FIXTURE)
-    if not os.path.exists(log_path):
-        sys.stderr.write("airlock: log not found: {}\n".format(log_path))
-        return 2
-    if os.path.isdir(log_path):
-        sys.stderr.write("airlock: log path is a directory, not a file: {}\n".format(log_path))
-        return 2
+def _resolve_log(path: Optional[str]) -> str:
+    return path or os.path.normpath(_DEFAULT_FIXTURE)
 
+
+def _load_log_or_die(log_path: str):
+    """Shared front-door for report/digest: validate the path and parse it,
+    returning ``(actions, stats)`` or raising ``_CliError`` with an exit code."""
+    if not os.path.exists(log_path):
+        raise _CliError("log not found: {}".format(log_path))
+    if os.path.isdir(log_path):
+        raise _CliError("log path is a directory, not a file: {}".format(log_path))
     # A security tool that crashes on bad input fails open. parse_log never
     # raises on malformed *lines*, but the file itself may be unreadable
-    # (permissions, a special file, a race that removed it) — treat that as a
-    # clean error, never a traceback.
+    # (permissions, a special file, a race that removed it) — a clean error,
+    # never a traceback.
     try:
-        actions, stats = parse_log(log_path)
+        return parse_log(log_path)
     except OSError as exc:
-        sys.stderr.write("airlock: could not read log {}: {}\n".format(log_path, exc))
+        raise _CliError("could not read log {}: {}".format(log_path, exc))
+
+
+class _CliError(Exception):
+    """A user-facing error with a clean message (never a traceback)."""
+
+
+def _resolve_policy(args: argparse.Namespace) -> "tuple[Optional[Policy], Optional[str]]":
+    """Return ``(policy, label)``. ``--no-policy`` forces zero-config; an
+    explicit ``--policy`` must exist; otherwise auto-discover (returns None if
+    nothing is found, i.e. plain zero-config)."""
+    if getattr(args, "no_policy", False):
+        return None, None
+    path = getattr(args, "policy", None)
+    if not path:
+        path = policymod.discover_policy_path()
+    if not path:
+        return None, None
+    if not os.path.exists(path):
+        raise _CliError("policy file not found: {}".format(path))
+    pol = policymod.load_policy(path)
+    return pol, os.path.basename(path)
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    log_path = _resolve_log(args.log)
+    try:
+        actions, stats = _load_log_or_die(log_path)
+        policy, _plabel = _resolve_policy(args)
+    except _CliError as exc:
+        sys.stderr.write("airlock: {}\n".format(exc))
         return 2
     label = "log {}".format(os.path.basename(log_path))
     if not actions:
@@ -212,7 +279,7 @@ def cmd_report(args: argparse.Namespace) -> int:
         )
         return 0
 
-    rep = build_report(actions)
+    rep = build_report(actions, policy=policy)
     sys.stdout.write(render_report(rep, label))
     if stats.skipped:
         sys.stdout.write(
@@ -220,6 +287,90 @@ def cmd_report(args: argparse.Namespace) -> int:
                 stats.skipped, stats.lines
             )
         )
+    return 0
+
+
+def cmd_digest(args: argparse.Namespace) -> int:
+    log_path = _resolve_log(args.log)
+    try:
+        actions, stats = _load_log_or_die(log_path)
+        policy, plabel = _resolve_policy(args)
+    except _CliError as exc:
+        sys.stderr.write("airlock: {}\n".format(exc))
+        return 2
+    label = "session log {}".format(os.path.basename(log_path))
+    if not actions:
+        sys.stdout.write(
+            "\n  Nothing to digest — no agent actions in {} "
+            "({} line(s), {} unparseable).\n\n".format(log_path, stats.lines, stats.skipped)
+        )
+        return 0
+    dg = analyze(actions, policy=policy)
+    sys.stdout.write(render_digest(dg, label, plabel))
+    return 0
+
+
+def cmd_learn(args: argparse.Namespace) -> int:
+    logs = args.log or [os.path.normpath(_DEFAULT_FIXTURE)]
+    base: Optional[Policy] = None
+    total = policymod.LearnStats()
+    n_sessions = 0
+    for log_path in logs:
+        try:
+            actions, _stats = _load_log_or_die(log_path)
+        except _CliError as exc:
+            sys.stderr.write("airlock: {}\n".format(exc))
+            return 2
+        if not actions:
+            continue
+        n_sessions += 1
+        engine = PolicyEngine()
+        observations = [(a, engine.evaluate(a)) for a in actions]
+        base, stats = policymod.learn_policy(
+            observations, sessions=n_sessions, base=base
+        )
+        total.actions += stats.actions
+        total.harvested += stats.harvested
+        total.excluded += stats.excluded
+
+    if base is None:
+        sys.stderr.write("airlock: no agent actions found in the given log(s) — nothing to learn.\n")
+        return 2
+
+    total.sessions = n_sessions
+    base.meta = {
+        "generated": args.now or "(local run)",
+        "sessions": str(total.sessions),
+        "actions": str(total.actions),
+        "harvested": str(total.harvested),
+        "excluded": str(total.excluded),
+    }
+
+    out_path = args.out or policymod.default_policy_path()
+    try:
+        policymod.save_policy(base, out_path)
+    except OSError as exc:
+        sys.stderr.write("airlock: could not write policy {}: {}\n".format(out_path, exc))
+        return 2
+
+    sys.stdout.write(
+        "\n  Learned your normal from {} session(s), {} action(s) "
+        "({} routine harvested, {} flagged/risky refused).\n".format(
+            total.sessions, total.actions, total.harvested, total.excluded
+        )
+    )
+    sys.stdout.write(
+        "  Wrote allow-policy: {}\n".format(out_path)
+    )
+    sys.stdout.write(
+        "    {} dir(s), {} file(s), {} domain(s), {} tool(s).\n".format(
+            len(base.dirs), len(base.files), len(base.domains), len(base.tools)
+        )
+    )
+    sys.stdout.write(
+        "  Observe-only: it suppresses known-normal noise in report/digest, "
+        "never unblocks anything.\n\n"
+    )
     return 0
 
 
@@ -241,8 +392,59 @@ def build_parser() -> argparse.ArgumentParser:
         help="path to a Claude Code session/hook JSONL log "
         "(default: bundled sample session)",
     )
+    _add_policy_flags(rep)
     rep.set_defaults(func=cmd_report)
+
+    dig = sub.add_parser(
+        "digest",
+        help="short session receipt: what was let through and why it was safe",
+    )
+    dig.add_argument(
+        "--log",
+        default=None,
+        help="path to a session/hook JSONL log (default: bundled sample session)",
+    )
+    _add_policy_flags(dig)
+    dig.set_defaults(func=cmd_digest)
+
+    lrn = sub.add_parser(
+        "learn",
+        help="observe your own past sessions and write an allow-policy (opt-in tuning)",
+    )
+    lrn.add_argument(
+        "--log",
+        action="append",
+        default=None,
+        metavar="PATH",
+        help="a past session log to learn from; repeat to learn from several "
+        "(default: bundled sample session)",
+    )
+    lrn.add_argument(
+        "--out",
+        default=None,
+        help="where to write the policy (default: ./.airlock.toml if present, "
+        "else ~/.airlock/policy.toml)",
+    )
+    lrn.add_argument(
+        "--now",
+        default=None,
+        help=argparse.SUPPRESS,  # test hook: stamp a deterministic 'generated' date
+    )
+    lrn.set_defaults(func=cmd_learn)
     return p
+
+
+def _add_policy_flags(sp: argparse.ArgumentParser) -> None:
+    sp.add_argument(
+        "--policy",
+        default=None,
+        help="path to a learned allow-policy (default: auto-discover, else none)",
+    )
+    sp.add_argument(
+        "--no-policy",
+        action="store_true",
+        help="ignore any learned policy and run fully zero-config",
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:

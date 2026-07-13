@@ -148,9 +148,15 @@ def parse_log(path: str) -> Tuple[List[Action], ParseStats]:
     """Parse a JSONL log file into actions. Never raises on bad lines."""
     actions: List[Action] = []
     stats = ParseStats()
-    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+    # ``utf-8-sig`` transparently drops a byte-order mark at the start of the
+    # file; we also lstrip a stray U+FEFF per line so a BOM surviving into the
+    # text (e.g. logs concatenated from several BOM-prefixed files) can't make
+    # ``json.loads`` choke and SILENTLY DROP the agent's first action — for a
+    # security tool, quietly skipping the very read that touched a secret is a
+    # fail-open we refuse. ``str.strip()`` does not remove the BOM; do it here.
+    with open(path, "r", encoding="utf-8-sig", errors="replace") as fh:
         for line in fh:
-            line = line.strip()
+            line = line.lstrip("﻿").strip()
             if not line:
                 continue
             stats.lines += 1

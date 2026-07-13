@@ -181,11 +181,11 @@ pings Discord) → the Mac's Cowork Claude (Comet + banking MCP) completes the r
 `cc-share/CHECKOUT-PLAYBOOK.md` → Ro approves t
 
 ## Relevant memory (cc-memory, top 6)
-- [episodic] Claude edit on airlock: [[HARDEN:3 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 3/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
-- [episodic] Claude edit on airlock: [[HARDEN:1 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 1/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
-- [episodic] Claude edit on airlock: [[HARDEN:1 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 1/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
 - [episodic] Claude edit on airlock: [[HARDEN:2 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 2/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
 - [episodic] Claude edit on airlock: [[HARDEN:2 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 2/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
-- [episodic] Live pipeline test built + extended Finish It MVP (music finishing app) fully autonomously: research->build(Fable)->3 harden rounds->add 3 features->corrective harden->99 tests passing. Fixed pipeline so EDITS auto-harde
+- [episodic] Claude edit on airlock: [[HARDEN:1 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 1/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
+- [episodic] Claude edit on airlock: [[HARDEN:1 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 1/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
+- [episodic] Claude edit on airlock: [[HARDEN:1 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 1/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (22 cha
+- [episodic] Claude edit on airlock: [[HARDEN:3 slug=airlock]] EDIT the existing project in place, do NOT rebuild. Automated hardening round 3/3 to reinforce the product. 1) Add/expand an automated test suite (unit +  -> done (1487 c
 
 ## This project (airlock)

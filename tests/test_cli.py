@@ -1,11 +1,12 @@
 """End-to-end tests for the ``airlock`` CLI (:mod:`airlock.cli`).
 
-The CLI ships exactly one command today — ``airlock report`` — which is
-READ-ONLY and makes no network calls of its own. These tests drive ``main``
-with real argv, run the report over the bundled fixture (the canonical exfil
-scenario), and cover the error paths a security tool must handle cleanly rather
-than with a traceback: a missing log, a directory instead of a file, an empty
-log, and a log full of noise.
+The CLI ships three READ-ONLY commands — ``report``, ``digest`` and ``learn`` —
+none of which make a network call of their own. These tests drive ``main`` with
+real argv, run over the bundled fixture (the canonical exfil scenario), and
+cover the error paths a security tool must handle cleanly rather than with a
+traceback: a missing log, a directory instead of a file, an empty log, and a log
+full of noise. The Phase-2 tests also verify the learn→policy→suppress loop
+end-to-end and that ``--no-policy`` forces zero-config.
 
 Scary tokens in expected strings are assembled at runtime (``_asm``) so the
 host's lexical gate never sees a whole trigger word in this file's bytes.
@@ -74,6 +75,30 @@ class TestParser:
     def test_unknown_command_errors(self):
         with pytest.raises(SystemExit):
             build_parser().parse_args(["frobnicate"])
+
+    def test_digest_subcommand_registered(self):
+        ns = build_parser().parse_args(["digest"])
+        assert ns.command == "digest"
+        assert ns.log is None and ns.no_policy is False
+
+    def test_learn_subcommand_registered(self):
+        ns = build_parser().parse_args(["learn", "--log", "a.jsonl", "--log", "b.jsonl"])
+        assert ns.command == "learn"
+        assert ns.log == ["a.jsonl", "b.jsonl"]
+
+    def test_policy_flags_on_report(self):
+        ns = build_parser().parse_args(["report", "--no-policy"])
+        assert ns.no_policy is True
+
+    def test_default_fixture_is_packaged_and_exists(self):
+        # Regression: the zero-config default must resolve to a file that ships
+        # INSIDE the package (a real wheel has no tests/ tree). Prefer the
+        # packaged copy under airlock/data/.
+        from airlock.cli import _default_fixture
+
+        path = _default_fixture()
+        assert os.path.exists(path), path
+        assert os.path.join("airlock", "data", "sample_session.jsonl") in path
 
 
 # --------------------------------------------------------------------------- #
@@ -213,3 +238,115 @@ class TestCmdReport:
             assert "skipped" in out  # notes the unparseable line
         finally:
             os.unlink(path)
+
+
+# --------------------------------------------------------------------------- #
+# cmd_digest — the session receipt path
+# --------------------------------------------------------------------------- #
+class TestCmdDigest:
+    def test_digest_over_bundled_fixture(self, capsys):
+        rc = main(["digest", "--log", _FIXTURE])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Airlock digest" in out
+        assert "Let through" in out and "Needed you" in out
+        assert "this is the one" in out  # the exfil headline
+
+    def test_digest_default_log(self, capsys):
+        rc = main(["digest"])
+        assert rc == 0
+        assert "Airlock digest" in capsys.readouterr().out
+
+    def test_digest_missing_log_returns_2(self, capsys):
+        rc = main(["digest", "--log", "/no/such/log.jsonl"])
+        assert rc == 2
+        assert "not found" in capsys.readouterr().err
+
+    def test_digest_empty_log(self, capsys):
+        path = _write_jsonl([])
+        try:
+            rc = main(["digest", "--log", path])
+            assert rc == 0
+            assert "Nothing to digest" in capsys.readouterr().out
+        finally:
+            os.unlink(path)
+
+
+# --------------------------------------------------------------------------- #
+# cmd_learn + the learn -> policy -> suppress loop
+# --------------------------------------------------------------------------- #
+class TestCmdLearn:
+    def _routine_log(self):
+        return _write_jsonl([
+            {"tool": "Read", "input": {"file_path": "/home/dev/app/src/index.ts"},
+             "result": {"source": "file", "content": "export const x = 1"}},
+            {"tool": "Read", "input": {"file_path": "/home/dev/app/package.json"},
+             "result": {"source": "file", "content": "{}"}},
+        ])
+
+    def test_learn_writes_policy(self, capsys):
+        log = self._routine_log()
+        fd, out = tempfile.mkstemp(suffix=".toml")
+        os.close(fd)
+        try:
+            rc = main(["learn", "--log", log, "--out", out, "--now", "2026-07-13"])
+            assert rc == 0
+            printed = capsys.readouterr().out
+            assert "Learned your normal" in printed
+            assert os.path.exists(out)
+            body = open(out, encoding="utf-8").read()
+            assert "/home/dev/app/src" in body
+            assert "2026-07-13" in body  # deterministic stamp
+        finally:
+            os.unlink(log)
+            os.unlink(out)
+
+    def test_learn_no_actions_returns_2(self, capsys):
+        log = _write_jsonl([{"type": "assistant", "content": "hi"}])
+        try:
+            rc = main(["learn", "--log", log])
+            assert rc == 2
+            assert "nothing to learn" in capsys.readouterr().err
+        finally:
+            os.unlink(log)
+
+    def test_learn_missing_log_returns_2(self, capsys):
+        rc = main(["learn", "--log", "/no/such/log.jsonl"])
+        assert rc == 2
+        assert "not found" in capsys.readouterr().err
+
+    def test_learned_policy_suppresses_in_report(self, capsys):
+        """End-to-end: learn from a routine log, then that policy suppresses the
+        routine reads when reporting the SAME log — but the exfil in the bundled
+        fixture is still surfaced (proving suppression never hides the signal)."""
+        log = self._routine_log()
+        fd, pol = tempfile.mkstemp(suffix=".toml")
+        os.close(fd)
+        try:
+            assert main(["learn", "--log", log, "--out", pol, "--now", "x"]) == 0
+            capsys.readouterr()  # drain
+            # report the routine log WITH the learned policy -> suppressed
+            rc = main(["report", "--log", log, "--policy", pol])
+            assert rc == 0
+            out = capsys.readouterr().out
+            assert "suppressed by your policy" in out
+            # and the fixture exfil is NOT suppressed even under the same policy
+            rc = main(["report", "--log", _FIXTURE, "--policy", pol])
+            assert rc == 0
+            assert "secret read earlier" in capsys.readouterr().out
+        finally:
+            os.unlink(log)
+            os.unlink(pol)
+
+    def test_no_policy_forces_zero_config(self, capsys, monkeypatch, tmp_path):
+        # Even if a project-local policy exists, --no-policy ignores it.
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".airlock.toml").write_text('[allow]\ntools = ["Read"]\n')
+        rc = main(["report", "--log", _FIXTURE, "--no-policy"])
+        assert rc == 0
+        assert "suppressed by your policy" not in capsys.readouterr().out
+
+    def test_bad_policy_path_returns_2(self, capsys):
+        rc = main(["report", "--log", _FIXTURE, "--policy", "/no/such/policy.toml"])
+        assert rc == 2
+        assert "policy file not found" in capsys.readouterr().err

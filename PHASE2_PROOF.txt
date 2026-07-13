@@ -1,0 +1,91 @@
+AIRLOCK — PHASE 2 PROOF   (generated Mon Jul 13 08:53:17 PM UTC 2026 by independent verification in a clean venv)
+Phase 2 = session digest + auto-learned policy. Every number is real command output.
+
+==========================================================
+1. INSTALL — 3 commands present
+==========================================================
+usage: airlock [-h] [--version] {report,digest,learn} ...
+
+Stop watching your agent. Local-first, zero-config safety for coding agents.
+
+positional arguments:
+  {report,digest,learn}
+    report              read-only summary of what your agent has been doing
+                        (zero config)
+    digest              short session receipt: what was let through and why it
+                        was safe
+    learn               observe your own past sessions and write an allow-
+                        policy (opt-in tuning)
+
+==========================================================
+2. TESTS — full suite
+==========================================================
+........................................................................ [ 94%]
+..................                                                       [100%]
+306 passed in 0.31s
+
+==========================================================
+3. airlock learn — writes an editable allow-policy from your own sessions
+==========================================================
+
+  Learned your normal from 1 session(s), 8 action(s) (5 routine harvested, 3 flagged/risky refused).
+  Wrote allow-policy: /tmp/learned.toml
+    1 dir(s), 1 file(s), 2 domain(s), 3 tool(s).
+  Observe-only: it suppresses known-normal noise in report/digest, never unblocks anything.
+
+--- policy [allow] section ---
+[allow]
+
+# Directories you routinely read/write. Reads & writes under these are normal.
+dirs = [
+  "/home/dev/app",
+]
+
+# Individual top-level files you routinely touch.
+files = [
+  "package.json",
+]
+
+# Domains your agent routinely contacts. Calls to these are normal.
+domains = [
+  "api.github.com",
+  "docs.example.com",
+]
+
+# Tools you routinely use.
+tools = [
+
+==========================================================
+4. airlock digest --policy — the receipt (let-through + why safe), and
+   the DECISIVE phase-2 claim: policy cuts false positives WITHOUT hiding the real hit
+==========================================================
+
+  Airlock digest — session log sample_session.jsonl
+  ──────────────────────────────────────────────────────────
+
+  Ran 8 actions unattended. 3 needed you. 1 secret left the machine.
+
+  ✓ Let through — safe (5):
+     1  read package.json — in policy
+     1  read-only, low risk
+     1  network call (docs.example.com)
+     1  read /home/dev/app/.env; read /home/dev/app/.env — in policy
+     1  network call (api.github.com)
+       (2 of these were suppressed as known-normal by your policy)
+
+  ⚠ Needed you (3):
+       ▸ step 5   BLOCK  a secret you read at step 4 left in an outbound payload   ← this is the one
+       ▸ step 7   BLOCK  acted right after reading untrusted content (from file)
+       ▸ step 8   BLOCK  acted right after reading untrusted content (from file)
+
+  Files changed this session:
+       (no files written)
+
+  Policy: learned.toml (observe-only — never used to unblock).
+  0 of Airlock's own network calls. Nothing was sent anywhere.
+
+==========================================================
+VERDICT: digest receipt works; learn writes a readable policy; the policy
+suppressed known-normal noise while the egress BLOCK still fired (secret left
+the machine). 306 tests green. Auto-policy cut false positives, kept the signal.
+==========================================================
