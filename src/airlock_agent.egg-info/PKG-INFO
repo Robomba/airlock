@@ -1,0 +1,93 @@
+Metadata-Version: 2.4
+Name: airlock-agent
+Version: 0.1.0
+Summary: Stop watching your agent. A local-first safety envelope that lets you run coding agents unattended.
+Author: Rohan Kaila
+License: MIT
+Project-URL: Homepage, https://github.com/Robomba/airlock
+Project-URL: Source, https://github.com/Robomba/airlock
+Keywords: ai,agent,security,guardrail,claude,prompt-injection,taint,dataflow
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Security
+Classifier: Environment :: Console
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+# Airlock
+
+**Stop watching your agent.** A local-first safety envelope that lets you run coding
+agents unattended — detection by **provenance and dataflow**, not keywords.
+
+Airlock makes **zero network calls of its own** and pulls in **zero runtime dependencies**.
+Standard library only.
+
+## Why keyword guardrails fail
+
+A lexical gate greps a command for scary words. Reword the command, base64-wrap the
+payload, or split the string and you walk right past it. Airlock does not read words.
+It tracks *where bytes came from* and *where they are going*.
+
+## The moat (`airlock.core.taint`)
+
+- **Provenance** — every tool *result* is tagged trusted (operator/host) or untrusted
+  (web / email / file / MCP). Unknown sources are untrusted by construction (fail-closed).
+- **Taint** — reading untrusted content taints the session.
+- **Escalation** — a high-risk action within a short window of untrusted content has its
+  severity raised. "Read a webpage, then tried to POST somewhere" is the shape of a
+  prompt-injection exploit.
+- **Egress matching** — when a secret is read, its bytes are fingerprinted with a rolling
+  hash (Rabin-Karp shingles) plus base64/hex variants. When a later action's outbound
+  payload contains those bytes — reworded, wrapped, or partial — the overlap is detected.
+  You cannot reword (or base64) your way past a hash comparison.
+- **Taint graph** — every escalation / egress hit records an edge, emitted into the audit log.
+
+## Verdict tiers
+
+| severity | verdict |
+|----------|---------|
+| low | allow + log |
+| medium | notify |
+| high | block until approved |
+| tainted egress / irreversible | block, show the taint graph |
+
+**Promise #4:** irreversible actions (money movement, destructive ops, publishing/sending)
+**always hard-stop for a human**, no matter what the policy says.
+
+## Install
+
+```sh
+pip install .
+```
+
+Requires Python 3.9+.
+
+## Usage
+
+Phase 1 ships one command — `airlock report` — **read-only, zero-config**. It replays a
+Claude Code session / hook log (JSONL) through the policy engine and prints what the agent
+has been doing. It cannot block, cannot break anything, and sends nothing anywhere.
+
+```sh
+airlock report                       # replays the bundled sample session
+airlock report --log path/to/log.jsonl
+```
+
+The log adapter is deliberately forgiving: logs vary across Claude Code versions, hooks,
+and SDKs, so a malformed line is **skipped and counted, never crashed on** — a security
+tool that dies on bad input hands control straight back to the agent.
+
+Later phases (`run`, `digest`, `eval`) are intentionally not advertised until they ship.
+
+## Development
+
+```sh
+python3 -m pytest -q
+```
+
+Everything in `airlock.engine` and `airlock.core` is pure and does no I/O — the ruling on
+an action is deterministic and testable without a network, a disk, or a real agent.
+
+## License
+
+MIT.

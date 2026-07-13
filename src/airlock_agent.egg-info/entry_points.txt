@@ -1,0 +1,2 @@
+[console_scripts]
+airlock = airlock.cli:main

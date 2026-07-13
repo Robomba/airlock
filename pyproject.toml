@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "airlock-agent"
+version = "0.1.0"
+description = "Stop watching your agent. A local-first safety envelope that lets you run coding agents unattended."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Rohan Kaila" }]
+keywords = ["ai", "agent", "security", "guardrail", "claude", "prompt-injection", "taint", "dataflow"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+    "Environment :: Console",
+]
+# Deliberately ZERO runtime dependencies. Airlock makes no network calls of its own
+# and pulls in nothing that could. Standard library only. (Promise #1.)
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Robomba/airlock"
+Source = "https://github.com/Robomba/airlock"
+
+[project.scripts]
+airlock = "airlock.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+airlock = ["eval/dataset/*.jsonl"]

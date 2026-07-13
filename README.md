@@ -1,0 +1,84 @@
+# Airlock
+
+### Stop watching your agent.
+
+You don't babysit your coding agent because it's dangerous. You babysit it because you can't tell the difference between it *reading a file* and it *reading your `.env` and POSTing it to an IP it found in a README.*
+
+Airlock can. So you can go do something else.
+
+```bash
+pip install airlock-agent
+airlock report
+```
+
+No config. It reads the logs your agent already wrote and tells you what it's been doing.
+
+```
+  This session — 8 agent actions:
+
+     1  file reads touched credentials  (/home/dev/app/.env)
+     3  network calls to 3 domains  (docs.example.com, collect.evil.example, api.github.com)
+     1  destructive commands                (no confirmation asked)
+     1  outbound payload carried a secret read earlier   <- this is the one
+     2  action(s) taken shortly after reading untrusted content
+```
+
+**Free. MIT. Runs entirely on your machine. Makes zero network calls of its own.**
+
+---
+
+## Why it's different
+
+Every other guardrail matches **keywords**. We published the benchmark showing that doesn't work: a bag-of-words classifier with no model at all scores **0.967** on the standard harm benchmark — and **0.493 (chance)** the moment the attacker stops using the obvious words. Keyword guardrails aren't detecting intent. They're detecting vocabulary. ([AICES paper](https://github.com/Robomba/ai-control-eval-suite) · [dataset](https://huggingface.co/datasets/Robomb/aices-minpair-control))
+
+Airlock watches **where data came from and where it's going.** It tracks which tool results are untrusted (web/email/file/MCP), taints the session when the agent reads them, and fingerprints every secret it sees so it can spot that secret leaving the machine — **even base64-encoded.** *"The agent read `evil.com`, then tried to POST your `.env`"* is not a wording problem. You can't rephrase your way past a hash comparison.
+
+---
+
+## Our promises
+
+These are commitments, not features. They're the reason you can trust a security tool you didn't write.
+
+**1. We will never phone home.** Zero telemetry, zero analytics, no network calls of Airlock's own — ever. A security tool that exfiltrates your data to prove nothing is exfiltrating your data is a joke. The code is MIT; verify it.
+
+**2. We publish our false-alarm rate every release.** Not our catch rate — anyone can catch everything by blocking everything. The number that matters is **how often we interrupt you for nothing**, and we print it whether it's good or bad. No other guardrail publishes this. Ask them why.
+
+**3. Sixty seconds or we failed.** Install to first insight with no config file, no policy language, no account. If you have to *learn* Airlock before it helps you, we built it wrong.
+
+**4. Some things always stop for a human.** Money moving, production, anything irreversible — those wake you up no matter what your policy says. No "trust level" will ever override that. If a tool offers to fully automate spending your money, close the tab.
+
+**5. We tell you what we can't do.** (See below — it stays in the README, permanently.)
+
+**6. We'll never ship an attack to sell the defense.** Our demos use dummy canaries and local sinks. We don't publish weapons.
+
+**7. Free, MIT, forever.** And the benchmark we grade ourselves with is public — run it against us, and against everyone else.
+
+---
+
+## What Airlock does NOT catch
+
+A security tool that overclaims is worse than none. Airlock sees **actions, not thoughts.**
+
+- **A genuinely malicious model with a covert channel.** If the model is the adversary and hides intent in benign-looking actions, Airlock can't read its mind.
+- **Anything outside the tool-call boundary.** If it doesn't go through a tool call Airlock can see, Airlock can't see it.
+- **Closed chat UIs** (ChatGPT / Claude web). There's no interception point.
+- **It is not a substitute for OS-level sandboxing.** Run untrusted agents in a container/VM. Airlock is a layer on top, not a replacement.
+
+Airlock **reduces babysitting; it does not eliminate risk.**
+
+---
+
+## Status
+
+**Phase 1 (now):** `airlock report` — read-only, zero-config. Reads your agent's existing logs, builds the taint/dataflow graph, shows what it's been doing. Cannot block anything.
+
+**Coming:**
+- Session digest + policy auto-learned from your own sessions
+- `airlock run -- claude "..."` — unattended mode: auto-approve in-policy, hard-stop the irreversible, ping you only when a human is genuinely needed
+- `airlock eval` — the public precision benchmark (false alarms per 1,000 actions)
+
+---
+
+## License
+
+MIT. Local-first. No network calls of its own.
