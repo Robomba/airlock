@@ -55,6 +55,15 @@ These are commitments, not features. They're the reason you can trust a security
 
 ---
 
+
+## ⚠ Disclaimer
+
+**Airlock is best-effort and will make mistakes.** It can miss real attacks and flag safe
+actions. It is **not a guarantee of safety**, not a substitute for code review or OS
+sandboxing, and is provided **AS IS with no warranty** (MIT). Benchmark numbers come from a
+small, non-human-audited seed set and are indicative, not definitive. **You are responsible
+for what your agent does.** Full text: [DISCLAIMER.md](DISCLAIMER.md).
+
 ## What Airlock does NOT catch
 
 A security tool that overclaims is worse than none. Airlock sees **actions, not thoughts.**

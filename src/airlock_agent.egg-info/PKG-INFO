@@ -71,6 +71,15 @@ These are commitments, not features. They're the reason you can trust a security
 
 ---
 
+
+## ⚠ Disclaimer
+
+**Airlock is best-effort and will make mistakes.** It can miss real attacks and flag safe
+actions. It is **not a guarantee of safety**, not a substitute for code review or OS
+sandboxing, and is provided **AS IS with no warranty** (MIT). Benchmark numbers come from a
+small, non-human-audited seed set and are indicative, not definitive. **You are responsible
+for what your agent does.** Full text: [DISCLAIMER.md](DISCLAIMER.md).
+
 ## What Airlock does NOT catch
 
 A security tool that overclaims is worse than none. Airlock sees **actions, not thoughts.**
@@ -86,14 +95,15 @@ Airlock **reduces babysitting; it does not eliminate risk.**
 
 ## Status
 
-**Phase 1 (now):** `airlock report` — read-only, zero-config. Reads your agent's existing logs, builds the taint/dataflow graph, shows what it's been doing. Cannot block anything.
+**Shipped (local, verified):**
+- `airlock report` — read-only, zero-config: what your agent has been doing.
+- `airlock digest` — the session receipt: what was let through and *why it was safe*.
+- `airlock learn` — writes an editable allow-policy from your own sessions (opt-in tuning).
+- `airlock run` — unattended supervision: **auto-approve in-policy, hard-stop the irreversible.** Money, production, destructive, sign-in, install, and any secret leaving the machine always stop for a human — no policy can override that.
+- `airlock hook` — the live Claude Code PreToolUse gate (returns allow / ask per tool call).
 
-**Coming:**
-- Session digest + policy auto-learned from your own sessions
-- `airlock run -- claude "..."` — unattended mode: auto-approve in-policy, hard-stop the irreversible, ping you only when a human is genuinely needed
-- `airlock eval` — the public precision benchmark (false alarms per 1,000 actions)
+**Next:** `airlock eval` — the public precision benchmark (false alarms per 1,000 actions).
 
----
 
 ## License
 

@@ -264,6 +264,12 @@ def _resolve_policy(args: argparse.Namespace) -> "tuple[Optional[Policy], Option
     return pol, os.path.basename(path)
 
 
+def _warn_footer() -> None:
+    sys.stderr.write(
+        "\n  ⚠ Airlock is best-effort and can miss attacks or flag safe actions "
+        "— not a guarantee; see DISCLAIMER.md.\n")
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     log_path = _resolve_log(args.log)
     try:
@@ -288,6 +294,7 @@ def cmd_report(args: argparse.Namespace) -> int:
                 stats.skipped, stats.lines
             )
         )
+    _warn_footer()
     return 0
 
 
@@ -308,6 +315,7 @@ def cmd_digest(args: argparse.Namespace) -> int:
         return 0
     dg = analyze(actions, policy=policy)
     sys.stdout.write(render_digest(dg, label, plabel))
+    _warn_footer()
     return 0
 
 
@@ -452,6 +460,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hookp.set_defaults(func=cmd_hook)
 
+    evp = sub.add_parser(
+        "eval",
+        help="strict precision benchmark: false alarms vs a keyword baseline",
+    )
+    evp.add_argument("--json", action="store_true",
+                     help="also write full per-example results to JSON")
+    evp.add_argument("--out", default=None, help="JSON output path")
+    evp.set_defaults(func=cmd_eval)
+
     return p
 
 
@@ -497,6 +514,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     dg = analyze(actions, policy=policy)
     sys.stdout.write(render_digest(
         dg, "supervised run of {}".format(os.path.basename(log_path)), plabel))
+    _warn_footer()
     return 1 if result.blocked else 0
 
 
@@ -525,6 +543,20 @@ def cmd_hook(args: argparse.Namespace) -> int:
         "permissionDecisionReason": "airlock: " + reason}}
     sys.stdout.write(json.dumps(out))
     return 0
+
+
+def cmd_eval(args: argparse.Namespace) -> int:
+    """Strict precision benchmark: false alarms vs a keyword baseline."""
+    from .evalsuite import evaluate, render
+    import json as _json
+    res = evaluate()
+    if getattr(args, "json", False):
+        out = args.out or "airlock_eval_results.json"
+        with open(out, "w") as f:
+            _json.dump(res, f, indent=2, default=list)
+        sys.stderr.write("wrote full per-example results to {}\n".format(out))
+    sys.stdout.write(render(res))
+    return 0 if all(c["pass"] for c in res["strict_checks"]) else 3
 
 
 def _add_policy_flags(sp: argparse.ArgumentParser) -> None:

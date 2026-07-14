@@ -4,6 +4,7 @@ src/airlock/__init__.py
 src/airlock/cli.py
 src/airlock/digest.py
 src/airlock/engine.py
+src/airlock/evalsuite.py
 src/airlock/logparse.py
 src/airlock/policy.py
 src/airlock/supervisor.py
@@ -23,6 +24,7 @@ tests/test_cli.py
 tests/test_detectors.py
 tests/test_digest.py
 tests/test_engine.py
+tests/test_eval.py
 tests/test_logparse.py
 tests/test_policy.py
 tests/test_supervisor.py
