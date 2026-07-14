@@ -28,6 +28,8 @@ def state(tmp_path, monkeypatch):
     monkeypatch.setenv("AIRLOCK_STATE_DIR", str(tmp_path / "sessions"))
     monkeypatch.delenv("AIRLOCK_MODE", raising=False)
     monkeypatch.delenv("AIRLOCK_HEADLESS", raising=False)
+    # HOME + ambient-env isolation lives in conftest.py (autouse), so the mode can
+    # never leak in from the machine the suite happens to run on.
     return tmp_path
 
 
@@ -147,3 +149,26 @@ class TestFailSafety:
         assert cli.main(["hook"]) == 0
         assert json.loads(buf.getvalue())[
             "hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+class TestModeResolution:
+    """The kill switch has to work from the FILE, not just a flag -- that is how a
+    human actually reaches for it mid-incident: `echo observe > ~/.airlock-mode`."""
+
+    def test_default_is_enforce(self, monkeypatch, tmp_path):
+        _watch_read(monkeypatch, "/home/dev/app/.env",
+                    "AWS_SECRET_ACCESS_KEY=" + SECRET)
+        assert _decide(monkeypatch, "Bash", {"command": EXFIL}) == "ask"
+
+    def test_the_kill_switch_file_is_honoured(self, monkeypatch, tmp_path):
+        _watch_read(monkeypatch, "/home/dev/app/.env",
+                    "AWS_SECRET_ACCESS_KEY=" + SECRET)
+        (tmp_path / ".airlock-mode").write_text("observe\n")
+        assert _decide(monkeypatch, "Bash", {"command": EXFIL}) == "allow"
+
+    def test_env_var_beats_the_file(self, monkeypatch, tmp_path):
+        _watch_read(monkeypatch, "/home/dev/app/.env",
+                    "AWS_SECRET_ACCESS_KEY=" + SECRET)
+        (tmp_path / ".airlock-mode").write_text("observe\n")
+        monkeypatch.setenv("AIRLOCK_MODE", "enforce")
+        assert _decide(monkeypatch, "Bash", {"command": EXFIL}) == "ask"
