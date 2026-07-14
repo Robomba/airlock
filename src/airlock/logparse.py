@@ -157,10 +157,104 @@ class ParseStats:
     skipped: int = 0
 
 
+# --------------------------------------------------------------------------- #
+# Claude Code's OWN session transcript
+# --------------------------------------------------------------------------- #
+# This is the format people actually have: ~/.claude/projects/<cwd>/<uuid>.jsonl.
+# It is NOT flat. A tool call lives inside an assistant message's content blocks
+# ({"type":"tool_use","id":...,"name":"Bash","input":{...}}) and its RESULT arrives
+# on a LATER line, keyed by tool_use_id (plus a richer top-level "toolUseResult").
+#
+# Airlock's flat reader saw none of this: pointing `airlock report` at a real
+# session printed "0 actions, N unparseable". The flagship, zero-config command
+# did nothing on the only log format its users own. This normalises the transcript
+# into the flat records the rest of the parser already understands -- and, crucially,
+# re-attaches each result to its call, because the result is where the secret bytes
+# are, and without it the dataflow layer has nothing to fingerprint.
+
+
+def _tool_result_text(block, rec):
+    """Pull the result payload for a tool_result block, preferring Claude Code's
+    richer top-level ``toolUseResult`` (it carries e.g. the file's actual content
+    for a Read, which is exactly what the taint layer needs)."""
+    tur = rec.get("toolUseResult")
+    if isinstance(tur, (dict, list)) and tur:
+        return tur
+    return block.get("content")
+
+
+def _cc_flat_records(path):
+    """Return flat records for a Claude Code transcript, or None if it isn't one."""
+    calls = []          # [(tool_use_id, {"tool_name":..., "tool_input":...})]
+    results = {}        # tool_use_id -> result payload
+    looks_like_cc = False
+    try:
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as fh:
+            for line in fh:
+                line = line.lstrip("\ufeff").strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                msg = rec.get("message")
+                if not isinstance(msg, dict):
+                    continue
+                content = msg.get("content")
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if not isinstance(block, dict):
+                        continue
+                    btype = block.get("type")
+                    if btype == "tool_use" and block.get("name"):
+                        looks_like_cc = True
+                        calls.append((block.get("id"), {
+                            "tool_name": block.get("name"),
+                            "tool_input": block.get("input") or {},
+                        }))
+                    elif btype == "tool_result":
+                        looks_like_cc = True
+                        tid = block.get("tool_use_id")
+                        if tid is not None:
+                            results[tid] = _tool_result_text(block, rec)
+    except OSError:
+        return None
+    if not looks_like_cc:
+        return None                      # a plain flat log: leave it alone
+    flat = []
+    for tid, call in calls:
+        if tid in results and results[tid] is not None:
+            call = dict(call, tool_response=results[tid])
+        flat.append(call)
+    return flat
+
 def parse_log(path: str) -> Tuple[List[Action], ParseStats]:
     """Parse a JSONL log file into actions. Never raises on bad lines."""
     actions: List[Action] = []
     stats = ParseStats()
+
+    # Claude Code's own transcript is nested, and its tool RESULTS arrive on later
+    # lines. Normalise it first; a plain flat log returns None and falls through.
+    try:
+        flat = _cc_flat_records(path)
+    except Exception:
+        flat = None
+    if flat is not None:
+        for rec in flat:
+            stats.lines += 1
+            try:
+                act = action_from_record(rec)
+            except Exception:
+                act = None
+            if act is None:
+                stats.skipped += 1
+                continue
+            actions.append(act)
+        return actions, stats
     # ``utf-8-sig`` transparently drops a byte-order mark at the start of the
     # file; we also lstrip a stray U+FEFF per line so a BOM surviving into the
     # text (e.g. logs concatenated from several BOM-prefixed files) can't make
