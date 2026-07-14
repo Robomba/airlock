@@ -77,6 +77,14 @@ def _coerce_content(resp: Any, _depth: int = 0) -> str:
     # recursive walk would blow the Python stack and crash the report (fail-open
     # for a security tool). Cap the depth and stringify whatever remains.
     if _depth >= _MAX_CONTENT_DEPTH:
+        # NB: do NOT str()/json.dumps() the remainder here. The whole point of the
+        # cap is that `resp` may still be thousands of levels deep, and both of
+        # those recurse per level — which would blow the stack in the very branch
+        # that exists to prevent blowing the stack. (This shipped: it only passed
+        # locally because arm64 happens to have a bigger stack than CI's x86.)
+        if isinstance(resp, (dict, list, tuple)):
+            return "<content truncated: nesting deeper than {}>".format(
+                _MAX_CONTENT_DEPTH)
         return str(resp) if resp is not None else ""
     if resp is None:
         return ""
@@ -89,8 +97,13 @@ def _coerce_content(resp: Any, _depth: int = 0) -> str:
                 return _coerce_content(resp[k], _depth + 1)
         try:
             return json.dumps(resp, ensure_ascii=False)
+        except RecursionError:
+            return "<content truncated: nesting too deep to encode>"
         except (TypeError, ValueError):
-            return str(resp)
+            try:
+                return str(resp)
+            except RecursionError:
+                return "<content truncated: nesting too deep to render>"
     if isinstance(resp, (list, tuple)):
         return "\n".join(_coerce_content(x, _depth + 1) for x in resp)
     return str(resp)

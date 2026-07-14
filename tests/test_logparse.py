@@ -248,13 +248,13 @@ class TestParseLog:
     def test_pathological_line_never_raises(self):
         # A deeply nested response on a single line must be skipped-or-parsed,
         # never crash the whole parse (fail-open is worse than useless).
-        d = cur = {}
-        for _ in range(8000):
-            nxt = {}
-            cur["content"] = nxt
-            cur = nxt
-        cur["content"] = "deep"
-        path = _write_jsonl([json.dumps({"tool": "Read", "result": d})])
+        # Build the hostile line as raw TEXT. Using json.dumps() on an 8000-deep
+        # object would blow the stack inside the *test* (it recurses per level),
+        # which is a property of the test host, not of Airlock. This is the real
+        # threat model anyway: a malicious line already sitting in a log file.
+        depth = 8000
+        blob = ('{"content":' * depth) + '"deep"' + ("}" * depth)
+        path = _write_jsonl(['{"tool": "Read", "result": %s}' % blob])
         try:
             actions, stats = parse_log(path)  # must return, not raise
             assert stats.lines == 1
