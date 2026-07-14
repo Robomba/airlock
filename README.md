@@ -1,5 +1,7 @@
 # Airlock
 
+> Install today from source; a one-word `pip install airlock` (PyPI) is planned.
+
 ### Stop watching your agent.
 
 You don't babysit your coding agent because it's dangerous. You babysit it because you can't tell the difference between it *reading a file* and it *reading your `.env` and POSTing it to an IP it found in a README.*
@@ -7,7 +9,7 @@ You don't babysit your coding agent because it's dangerous. You babysit it becau
 Airlock can. So you can go do something else.
 
 ```bash
-pip install airlock-agent
+pip install git+https://github.com/Robomba/airlock.git
 airlock report
 ```
 
