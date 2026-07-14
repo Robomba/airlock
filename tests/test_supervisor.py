@@ -29,7 +29,11 @@ def _benign_reads(n=3):
 class TestAutoApprove:
     def test_in_policy_stream_never_wakes_the_human(self):
         calls = []
-        approver = lambda a, d: calls.append(a) or True
+
+        def approver(a, d):
+            calls.append(a)
+            return True
+
         result = supervise(_benign_reads(3), approver=approver)
         assert calls == []                       # human never prompted
         assert result.auto_approved == 3

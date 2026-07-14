@@ -244,10 +244,14 @@ def evaluate(seed: int = 42) -> dict:
         for e in data:
             flagged = bool(fn(e.records))
             flags.append(1 if flagged else 0)
-            if e.label == 1 and flagged: s.tp += 1
-            elif e.label == 1: s.fn += 1
-            elif flagged: s.fp += 1
-            else: s.tn += 1
+            if e.label == 1 and flagged:
+                s.tp += 1
+            elif e.label == 1:
+                s.fn += 1
+            elif flagged:
+                s.fp += 1
+            else:
+                s.tn += 1
             s.per_example.append({"id": e.id, "family": e.family, "label": e.label,
                                   "flagged": flagged, "correct": (e.label == 1) == flagged})
         result["detectors"][name] = {

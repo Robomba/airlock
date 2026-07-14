@@ -9,7 +9,6 @@ kind inference, content coercion, and a battery of hostile / malformed inputs.
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import tempfile

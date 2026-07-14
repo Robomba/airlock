@@ -24,11 +24,10 @@ from airlock import __version__
 from airlock.cli import (
     build_parser,
     build_report,
-    cmd_report,
     main,
     render_report,
 )
-from airlock.core.action import Action, ActionKind, ToolResult
+from airlock.core.action import Action, ToolResult
 
 
 def _asm(*parts):

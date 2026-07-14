@@ -166,12 +166,10 @@ def render_report(rep: Dict[str, object], source_label: str) -> str:
     n_hits = len(taint_hits)
     n_esc = len(escalations)
     if n_hits:
-        d = taint_hits[0]
         lines.append(
             "  {:>4}  outbound payload carried a secret read earlier   <- this is the one".format(n_hits)
         )
     if n_esc:
-        d = escalations[0]
         # find the distance from the reason text if present
         lines.append(
             "  {:>4}  action(s) taken shortly after reading untrusted content".format(n_esc)
@@ -458,7 +456,23 @@ def build_parser() -> argparse.ArgumentParser:
         "hook",
         help="Claude Code PreToolUse gate: read a tool event on stdin, emit allow/ask",
     )
+    hookp.add_argument(
+        "--mode", choices=["observe", "enforce"], default=None,
+        help="observe = log only, never block (default: $AIRLOCK_MODE, "
+             "~/.airlock-mode, else enforce)",
+    )
+    hookp.add_argument(
+        "--headless", action="store_true",
+        help="nobody is at the keyboard: a hard-stop denies instead of asking",
+    )
     hookp.set_defaults(func=cmd_hook)
+
+    watchp = sub.add_parser(
+        "watch",
+        help="PostToolUse recorder: feed tool RESULTS into the session's dataflow "
+             "state (this is what makes live cross-call exfil detection work)",
+    )
+    watchp.set_defaults(func=cmd_watch)
 
     evp = sub.add_parser(
         "eval",
@@ -498,9 +512,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         sys.stderr.write("airlock: {}\n".format(exc))
         return 2
     if args.approve_all:
-        approver = lambda a, d: True
+        def approver(a, d):
+            return True
     elif args.deny_all or not sys.stdin.isatty():
-        approver = lambda a, d: False  # fail-safe: never auto-proceed a hard-stop
+        def approver(a, d):
+            return False   # fail-safe: never auto-proceed a hard-stop
     else:
         def approver(a, d):
             try:
@@ -508,7 +524,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             except EOFError:
                 return False
             return ans.strip().lower() in ("y", "yes")
-    notifier = lambda m: sys.stderr.write("  [airlock] " + m + "\n")
+    def notifier(m):
+        sys.stderr.write("  [airlock] " + m + "\n")
     result = supervise(actions, approver=approver, notifier=notifier)
     sys.stdout.write(render_run_summary(result))
     dg = analyze(actions, policy=policy)
@@ -518,25 +535,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 1 if result.blocked else 0
 
 
-def cmd_hook(args: argparse.Namespace) -> int:
-    """Claude Code PreToolUse gate: read one tool event (JSON) on stdin, emit the
-    permission decision. This is Airlock's real live-interception seam."""
+def _hook_emit(word: str, reason: str) -> int:
     import json
-    from .logparse import action_from_record
-    from .engine import PolicyEngine, Verdict
-    raw = sys.stdin.read()
-    try:
-        event = json.loads(raw) if raw.strip() else {}
-    except Exception:
-        event = {}
-    action = action_from_record(event) if isinstance(event, dict) else None
-    if action is None:
-        word, reason = "allow", "no gate-relevant action in event"
-    else:
-        d = PolicyEngine().evaluate(action)
-        # A hard-stop surfaces to the human ("ask"); everything else passes.
-        word = "ask" if d.verdict == Verdict.BLOCK else "allow"
-        reason = d.reason
     out = {"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": word,
@@ -544,6 +544,115 @@ def cmd_hook(args: argparse.Namespace) -> int:
     sys.stdout.write(json.dumps(out))
     return 0
 
+
+def _resolve_mode(flag: Optional[str]) -> str:
+    """--mode, else $AIRLOCK_MODE, else ~/.airlock-mode, else enforce."""
+    import os as _os
+    m = (flag or _os.environ.get("AIRLOCK_MODE") or "").strip().lower()
+    if not m:
+        try:
+            with open(_os.path.join(_os.path.expanduser("~"), ".airlock-mode")) as fh:
+                m = fh.read().strip().lower()
+        except OSError:
+            m = ""
+    return m if m in ("observe", "enforce") else "enforce"
+
+
+def cmd_hook(args: argparse.Namespace) -> int:
+    """Claude Code PreToolUse gate — the live seam.
+
+    Judges the PENDING tool call against everything Airlock has already seen in
+    this session (fed by ``airlock watch``; see :mod:`airlock.session`). The
+    ruling is computed on a COPY of the session state, so judging an action can
+    never rewrite history.
+
+    Modes — ``--mode``, else ``$AIRLOCK_MODE``, else ``~/.airlock-mode``, else enforce:
+
+      observe   log only, ALWAYS allow. Cannot stall an agent. Use it to build trust.
+      enforce   a hard-stop surfaces to a human as "ask".
+      --headless (or ``$AIRLOCK_HEADLESS=1``) nobody is at the keyboard, so a
+                hard-stop becomes "deny" rather than hanging forever on a prompt
+                no one will ever answer.
+
+    Fails OPEN on internal error, deliberately: a broken guardrail must never
+    brick the agent it is watching. Airlock is a safety net, not a guarantee.
+    """
+    import json
+    import os as _os
+    from .logparse import action_from_record
+    from .engine import PolicyEngine, Verdict
+    from . import session as _sess
+
+    raw = sys.stdin.read()
+    try:
+        event = json.loads(raw) if raw.strip() else {}
+    except Exception:
+        event = {}
+    if not isinstance(event, dict):
+        event = {}
+
+    mode = _resolve_mode(getattr(args, "mode", None))
+    headless = (bool(getattr(args, "headless", False))
+                or _os.environ.get("AIRLOCK_HEADLESS") == "1")
+    sid = event.get("session_id")
+
+    try:
+        action = action_from_record(event)
+    except Exception:
+        action = None
+    if action is None:
+        return _hook_emit("allow", "no gate-relevant action in event")
+
+    try:
+        engine = PolicyEngine()
+        engine.tracker = _sess.snapshot(_sess.load(sid))   # judge on a copy
+        decision = engine.evaluate(action)
+    except Exception as exc:                                # noqa: BLE001
+        return _hook_emit("allow", "internal error, failing open ({})".format(exc))
+
+    if decision.verdict != Verdict.BLOCK:
+        return _hook_emit("allow", decision.reason)
+    if mode == "observe":
+        return _hook_emit("allow", "OBSERVE-ONLY (would hard-stop): " + decision.reason)
+    if headless:
+        return _hook_emit("deny", "HARD-STOP, nobody at the keyboard: " + decision.reason)
+    return _hook_emit("ask", "HARD-STOP: " + decision.reason)
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Claude Code PostToolUse recorder — where the dataflow moat is actually fed.
+
+    PreToolUse fires BEFORE the tool runs, so it never sees a result: no result,
+    no secret bytes, nothing to fingerprint. Without this half, Airlock's live
+    gate could only ever pattern-match one action at a time — the very thing it
+    exists to beat. ``watch`` observes the COMPLETED call (tool + result) and
+    advances the persisted session state, so a secret read at step 3 is
+    recognised when something tries to send it at step 19.
+
+    Silent by design: it never blocks and never speaks.
+    """
+    import json
+    from .logparse import action_from_record
+    from . import session as _sess
+
+    raw = sys.stdin.read()
+    try:
+        event = json.loads(raw) if raw.strip() else {}
+    except Exception:
+        return 0
+    if not isinstance(event, dict):
+        return 0
+    try:
+        action = action_from_record(event)
+        if action is None:
+            return 0
+        sid = event.get("session_id")
+        tracker = _sess.load(sid)
+        tracker.observe(action)
+        _sess.save(sid, tracker)
+    except Exception:                                        # noqa: BLE001
+        return 0        # recording must never break the agent
+    return 0
 
 def cmd_eval(args: argparse.Namespace) -> int:
     """Strict precision benchmark: false alarms vs a keyword baseline."""

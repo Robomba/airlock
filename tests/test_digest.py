@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from airlock.core.action import Action, ActionKind, ToolResult
 from airlock.digest import (
-    Digest,
     StepView,
     _attention_reason,
     _safe_reason,

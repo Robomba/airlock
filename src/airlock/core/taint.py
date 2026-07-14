@@ -23,6 +23,8 @@ Pure, standard-library only, no I/O. The rolling hash is a plain polynomial
 
 from __future__ import annotations
 
+import hashlib
+
 import base64
 import math
 from collections import Counter
@@ -30,7 +32,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
 from . import detectors
-from .action import Action, ActionKind, Severity
+from .action import Action, Severity
 
 # --------------------------------------------------------------------------- #
 # Rolling-hash shingling (Rabin-Karp)
@@ -192,6 +194,41 @@ def _extract_secret_values(content: str) -> List[str]:
     return values
 
 
+_MAX_HASH_SCAN = 65_536            # cap the sliding-window scan; a huge write
+                                   # must never stall the gate
+
+
+def _short_hash_hits(payload: str, refs: List["SecretRef"], salt: str,
+                     shingle_k: int) -> Set[str]:
+    """Match secrets we know only by salted hash (state restored from disk).
+
+    Only *sub-shingle-length* secrets need this: anything at least ``shingle_k``
+    long is already covered by its rolling-hash fingerprints, which survive
+    persistence. Short ones cannot be shingled and their plaintext was never
+    written to disk (by design), so we slide a window of each known length over
+    the payload and compare salted hashes. One bounded scan per action.
+    """
+    wanted: dict = {}
+    for ref in refs:
+        for h, n in (getattr(ref, "literal_hashes", None) or ()):
+            n = int(n)
+            if 0 < n < shingle_k:
+                wanted.setdefault(n, set()).add(h)
+    if not wanted or not payload:
+        return set()
+    data = payload[:_MAX_HASH_SCAN]
+    hits: Set[str] = set()
+    for length, hashes in wanted.items():
+        if length > len(data):
+            continue
+        for i in range(len(data) - length + 1):
+            h = hashlib.sha256(
+                (salt + data[i:i + length]).encode("utf-8", "replace")).hexdigest()
+            if h in hashes:
+                hits.add(h)
+    return hits
+
+
 @dataclass
 class SecretRef:
     """A fingerprinted secret captured from a read, for egress matching.
@@ -206,6 +243,11 @@ class SecretRef:
     label: str
     literals: List[str] = field(default_factory=list)
     fingerprints: List[Set[int]] = field(default_factory=list)
+    # Salted (hash, length) pairs. Populated ONLY when this ref was restored from
+    # a persisted session, where the secret bytes are deliberately never written
+    # to disk. Lets a sub-shingle-length secret still be matched on egress
+    # without Airlock ever storing the secret itself. See airlock.session.
+    literal_hashes: List[Tuple[str, int]] = field(default_factory=list)
 
     @property
     def shingle_count(self) -> int:
@@ -306,6 +348,8 @@ class TaintTracker:
         if not payload:
             return []
         out_shingles = rolling_shingles(payload, self.shingle_k)
+        short_hits = _short_hash_hits(payload, self.secrets,
+                                      getattr(self, "salt", "") or "", self.shingle_k)
         hits: List[SecretRef] = []
         for ref in self.secrets:
             if ref.step == self.step:
@@ -313,6 +357,13 @@ class TaintTracker:
             # Exact-substring fast path: catches short secrets (too small to
             # shingle inside a longer payload) and verbatim base64/hex copies.
             if any(lit and lit in payload for lit in ref.literals):
+                hits.append(ref)
+                continue
+            # Same guarantee for a session restored from disk, where the secret
+            # bytes were never persisted — only their salted hashes.
+            if short_hits and any(
+                h in short_hits for h, _n in (ref.literal_hashes or ())
+            ):
                 hits.append(ref)
                 continue
             # Fuzzy path: enough of the secret's (or an encoding's) shingles

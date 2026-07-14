@@ -37,6 +37,53 @@ Airlock watches **where data came from and where it's going.** It tracks which t
 
 ---
 
+## Turn it on (live gating)
+
+Airlock plugs into Claude Code as two hooks. **You need both.**
+
+```jsonc
+// ~/.claude/settings.json
+{
+  "hooks": {
+    "PreToolUse":  [{ "matcher": "*", "hooks": [{ "type": "command", "command": "airlock hook"  }] }],
+    "PostToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "airlock watch" }] }]
+  }
+}
+```
+
+Why two? `PreToolUse` fires *before* a tool runs, so it never sees a **result** —
+no result, no secret bytes, nothing to fingerprint. `airlock watch` (PostToolUse)
+is the only place a secret can actually be captured. **Without `watch`, Airlock
+can only judge one action at a time and cross-call exfiltration is not detected.**
+With it, "read the `.env` at step 3, POST it to an unknown host at step 19" is
+caught — the payload at step 19 looks innocent on its own.
+
+### Modes
+
+| Mode | Behaviour | Use it when |
+|---|---|---|
+| `observe` | Scores and logs everything, **always allows**. Cannot stall an agent. | You're building trust, or the agent runs unattended and must never block. |
+| `enforce` *(default)* | A hard-stop surfaces to you as an **ask**. Everything else auto-approves. | You're at the keyboard. |
+| `enforce --headless` | A hard-stop **denies** instead of asking. | Nobody is there — an "ask" nobody answers is a hang, not a guardrail. |
+
+Set with `--mode`, or `$AIRLOCK_MODE`, or a `~/.airlock-mode` file.
+
+**Kill switch:** `echo observe > ~/.airlock-mode` — instantly back to logging-only,
+no restart, no config edit.
+
+### What it never does
+
+Airlock **never writes your secrets to disk.** Session state holds only rolling-hash
+fingerprints and salted hashes — enough to recognise those bytes trying to leave,
+not enough to reconstruct them. A stolen state file yields nothing. (State lives in
+`~/.cache/airlock/sessions`, mode `0600`, expires after 7 days.)
+
+It also **fails open, on purpose**: if Airlock itself errors, the tool call is
+allowed and the error is logged. A broken guardrail must never brick the agent it
+is watching. That is a deliberate trade-off, and it is the honest one to state:
+**Airlock is a safety net, not a guarantee.** It can miss things. Do not use it as
+the only thing standing between an agent and something you cannot undo.
+
 ## Our promises
 
 These are commitments, not features. They're the reason you can trust a security tool you didn't write.

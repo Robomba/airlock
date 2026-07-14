@@ -16,12 +16,10 @@ from __future__ import annotations
 import os
 import tempfile
 
-import pytest
 
 from airlock.core.action import Action, ActionKind, ToolResult
-from airlock.engine import PolicyEngine, Verdict
+from airlock.engine import PolicyEngine
 from airlock.policy import (
-    LearnStats,
     Policy,
     _mini_toml,
     _norm_dir,

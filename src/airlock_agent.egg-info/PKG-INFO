@@ -13,6 +13,8 @@ Classifier: Topic :: Security
 Classifier: Environment :: Console
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
 
 # Airlock
 

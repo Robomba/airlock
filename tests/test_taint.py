@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import base64
 
-import pytest
 
-from airlock.core.action import Action, ActionKind, Severity, ToolResult
+from airlock.core.action import Action, Severity, ToolResult
 from airlock.core.taint import (
     _MATCH_RATIO,
     SecretRef,
