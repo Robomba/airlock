@@ -28,6 +28,7 @@ from .core.action import Action, ActionKind
 from .digest import analyze, render_digest
 from .engine import Decision, PolicyEngine, Verdict
 from .logparse import parse_log
+from .supervisor import supervise, render_run_summary
 from .policy import Policy
 
 def _default_fixture() -> str:
@@ -431,7 +432,99 @@ def build_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,  # test hook: stamp a deterministic 'generated' date
     )
     lrn.set_defaults(func=cmd_learn)
+
+    runp = sub.add_parser(
+        "run",
+        help="supervise an agent run: auto-approve in-policy, hard-stop the irreversible",
+    )
+    runp.add_argument("--log", default=None,
+                      help="preview supervision on a recorded session (default: bundled sample)")
+    runp.add_argument("--approve-all", action="store_true", help=argparse.SUPPRESS)
+    runp.add_argument("--deny-all", action="store_true", help=argparse.SUPPRESS)
+    runp.add_argument("cmd", nargs=argparse.REMAINDER,
+                      help="-- <agent command> to gate live via the PreToolUse hook")
+    _add_policy_flags(runp)
+    runp.set_defaults(func=cmd_run)
+
+    hookp = sub.add_parser(
+        "hook",
+        help="Claude Code PreToolUse gate: read a tool event on stdin, emit allow/ask",
+    )
+    hookp.set_defaults(func=cmd_hook)
+
     return p
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Supervise an agent run: auto-approve in-policy, hard-stop the irreversible."""
+    cmd = [c for c in (getattr(args, "cmd", None) or []) if c != "--"]
+    if cmd:
+        # Live mode. True interception of a child agent happens through Claude
+        # Code's PreToolUse hook (see `airlock hook`); we do not silently run an
+        # ungated agent and pretend it was watched.
+        sys.stdout.write(
+            "\n  Live gating runs through Claude Code's PreToolUse hook.\n"
+            "  Add this to your Claude Code settings (once):\n\n"
+            '      "hooks": {"PreToolUse": [{"hooks": [{"type": "command",\n'
+            '                 "command": "airlock hook"}]}]}\n\n'
+            "  Then every tool call in `%s ...` is gated live: in-policy actions\n"
+            "  pass, and money/prod/destructive/egress stop for you.\n"
+            "  To preview supervision on a recorded session: airlock run --log <file>\n\n"
+            % cmd[0]
+        )
+        return 0
+    log_path = _resolve_log(args.log)
+    try:
+        actions, stats = _load_log_or_die(log_path)
+        policy, plabel = _resolve_policy(args)
+    except _CliError as exc:
+        sys.stderr.write("airlock: {}\n".format(exc))
+        return 2
+    if args.approve_all:
+        approver = lambda a, d: True
+    elif args.deny_all or not sys.stdin.isatty():
+        approver = lambda a, d: False  # fail-safe: never auto-proceed a hard-stop
+    else:
+        def approver(a, d):
+            try:
+                ans = input("  HARD-STOP: {} — {}\n  approve? [y/N] ".format(a.tool, d.reason))
+            except EOFError:
+                return False
+            return ans.strip().lower() in ("y", "yes")
+    notifier = lambda m: sys.stderr.write("  [airlock] " + m + "\n")
+    result = supervise(actions, approver=approver, notifier=notifier)
+    sys.stdout.write(render_run_summary(result))
+    dg = analyze(actions, policy=policy)
+    sys.stdout.write(render_digest(
+        dg, "supervised run of {}".format(os.path.basename(log_path)), plabel))
+    return 1 if result.blocked else 0
+
+
+def cmd_hook(args: argparse.Namespace) -> int:
+    """Claude Code PreToolUse gate: read one tool event (JSON) on stdin, emit the
+    permission decision. This is Airlock's real live-interception seam."""
+    import json
+    from .logparse import action_from_record
+    from .engine import PolicyEngine, Verdict
+    raw = sys.stdin.read()
+    try:
+        event = json.loads(raw) if raw.strip() else {}
+    except Exception:
+        event = {}
+    action = action_from_record(event) if isinstance(event, dict) else None
+    if action is None:
+        word, reason = "allow", "no gate-relevant action in event"
+    else:
+        d = PolicyEngine().evaluate(action)
+        # A hard-stop surfaces to the human ("ask"); everything else passes.
+        word = "ask" if d.verdict == Verdict.BLOCK else "allow"
+        reason = d.reason
+    out = {"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": word,
+        "permissionDecisionReason": "airlock: " + reason}}
+    sys.stdout.write(json.dumps(out))
+    return 0
 
 
 def _add_policy_flags(sp: argparse.ArgumentParser) -> None:
@@ -453,7 +546,24 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not getattr(args, "command", None):
         parser.print_help()
         return 0
-    return args.func(args)
+    # Last-resort guard. Airlock's core promise is that it never fails open:
+    # every command already handles its own expected errors (_CliError, OSError)
+    # and returns exit code 2. This backstop ensures that even an UNANTICIPATED
+    # bug surfaces as a clean one-line error and a non-zero exit, never a Python
+    # traceback that hands control straight back to the agent it was watching.
+    # SystemExit (argparse --version/--help/parse errors) and KeyboardInterrupt
+    # are BaseException, not Exception, so they still propagate untouched.
+    try:
+        return args.func(args)
+    except _CliError as exc:
+        sys.stderr.write("airlock: {}\n".format(exc))
+        return 2
+    except BrokenPipeError:
+        # Downstream pipe closed (e.g. `airlock report | head`). Not an error.
+        return 0
+    except Exception as exc:  # noqa: BLE001 — deliberate catch-all backstop
+        sys.stderr.write("airlock: unexpected error: {}\n".format(exc))
+        return 2
 
 
 if __name__ == "__main__":

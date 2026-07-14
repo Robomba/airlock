@@ -70,14 +70,15 @@ Airlock **reduces babysitting; it does not eliminate risk.**
 
 ## Status
 
-**Phase 1 (now):** `airlock report` — read-only, zero-config. Reads your agent's existing logs, builds the taint/dataflow graph, shows what it's been doing. Cannot block anything.
+**Shipped (local, verified):**
+- `airlock report` — read-only, zero-config: what your agent has been doing.
+- `airlock digest` — the session receipt: what was let through and *why it was safe*.
+- `airlock learn` — writes an editable allow-policy from your own sessions (opt-in tuning).
+- `airlock run` — unattended supervision: **auto-approve in-policy, hard-stop the irreversible.** Money, production, destructive, sign-in, install, and any secret leaving the machine always stop for a human — no policy can override that.
+- `airlock hook` — the live Claude Code PreToolUse gate (returns allow / ask per tool call).
 
-**Coming:**
-- Session digest + policy auto-learned from your own sessions
-- `airlock run -- claude "..."` — unattended mode: auto-approve in-policy, hard-stop the irreversible, ping you only when a human is genuinely needed
-- `airlock eval` — the public precision benchmark (false alarms per 1,000 actions)
+**Next:** `airlock eval` — the public precision benchmark (false alarms per 1,000 actions).
 
----
 
 ## License
 
