@@ -1,6 +1,7 @@
 # Airlock
 
-> Install today from source; a one-word `pip install airlock` (PyPI) is planned.
+[![CI](https://github.com/Robomba/airlock/actions/workflows/ci.yml/badge.svg)](https://github.com/Robomba/airlock/actions/workflows/ci.yml)
+&nbsp;·&nbsp; MIT &nbsp;·&nbsp; zero runtime deps &nbsp;·&nbsp; runs entirely on your machine
 
 ### Stop watching your agent.
 
@@ -9,9 +10,12 @@ You don't babysit your coding agent because it's dangerous. You babysit it becau
 Airlock can. So you can go do something else.
 
 ```bash
-pip install git+https://github.com/Robomba/airlock.git
+pip install "git+https://github.com/Robomba/airlock.git"
 airlock report
 ```
+
+> On PyPI the package is **`airlock-agent`** (plain `airlock` is an unrelated project) — so
+> once it's published, `pip install airlock-agent`. Either way the command is just `airlock`.
 
 No config. It reads the logs your agent already wrote and tells you what it's been doing.
 

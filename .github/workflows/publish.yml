@@ -1,0 +1,44 @@
+name: Publish to PyPI
+
+# Trusted Publishing (OIDC): PyPI verifies THIS repo+workflow directly, so there is
+# no API token stored anywhere and nothing to leak. Fires when you push a version tag.
+#
+# ONE-TIME SETUP on pypi.org (2 min, you must do this — it needs your account):
+#   1. Log in at https://pypi.org  ->  Your projects  ->  Publishing  (or:
+#      https://pypi.org/manage/account/publishing/ )
+#   2. Add a "pending" trusted publisher with EXACTLY:
+#        PyPI project name : airlock-agent
+#        Owner             : Robomba
+#        Repository        : airlock
+#        Workflow name     : publish.yml
+#        Environment       : (leave blank)
+#   3. Save. That's it — no token, no password in GitHub.
+#
+# THEN, to publish a release:
+#   git tag v0.1.0 && git push origin v0.1.0
+#   (the tag must match the version in pyproject.toml)
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write        # REQUIRED for trusted publishing; grants no token access
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Check the artifacts
+        run: |
+          python -m pip install twine
+          python -m twine check dist/*
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
