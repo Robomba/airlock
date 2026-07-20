@@ -10,12 +10,13 @@ You don't babysit your coding agent because it's dangerous. You babysit it becau
 Airlock can. So you can go do something else.
 
 ```bash
-pip install "git+https://github.com/Robomba/airlock.git"
+pip install airlock-agent
 airlock report
 ```
 
-> On PyPI the package is **`airlock-agent`** (plain `airlock` is an unrelated project) — so
-> once it's published, `pip install airlock-agent`. Either way the command is just `airlock`.
+> The PyPI package is **`airlock-agent`** (plain `airlock` is an unrelated project); the
+> command is just `airlock`. For the bleeding edge:
+> `pip install "git+https://github.com/Robomba/airlock.git"`.
 
 No config. It reads the logs your agent already wrote and tells you what it's been doing.
 
