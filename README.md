@@ -36,9 +36,20 @@ No config. It reads the logs your agent already wrote and tells you what it's be
 
 ## Why it's different
 
-Every other guardrail matches **keywords**. We published the benchmark showing that doesn't work: a bag-of-words classifier with no model at all scores **0.967** on the standard harm benchmark — and **0.493 (chance)** the moment the attacker stops using the obvious words. Keyword guardrails aren't detecting intent. They're detecting vocabulary. ([AICES paper](https://github.com/Robomba/ai-control-eval-suite) · [dataset](https://huggingface.co/datasets/Robomb/aices-minpair-control))
+Most guardrails you can `pip install` today match **keywords**. We published the benchmark showing that doesn't work: a bag-of-words classifier with no model at all scores **0.967** on the standard harm benchmark — and **0.493 (chance)** the moment the attacker stops using the obvious words. Keyword guardrails aren't detecting intent. They're detecting vocabulary. ([AICES paper](https://github.com/Robomba/ai-control-eval-suite) · [dataset](https://huggingface.co/datasets/Robomb/aices-minpair-control))
 
 Airlock watches **where data came from and where it's going.** It tracks which tool results are untrusted (web/email/file/MCP), taints the session when the agent reads them, and fingerprints every secret it sees so it can spot that secret leaving the machine — **even base64-encoded.** *"The agent read `evil.com`, then tried to POST your `.env`"* is not a wording problem. You can't rephrase your way past a hash comparison.
+
+**This isn't a new idea, and I won't pretend it is.** Provenance/dataflow defenses for
+agents already exist in research: DeepMind's [CaMeL](https://arxiv.org/abs/2503.18813),
+[Invariant Labs](https://invariantlabs.ai/) (acquired into Snyk), Meta's
+[LlamaFirewall](https://arxiv.org/abs/2505.03574). Airlock's contribution is **not** the
+concept — it's (1) a zero-config build you can install and run against your own Claude Code
+sessions today, and (2) an **open, minimal-pair controlled benchmark for agent actions** that
+measures the thing everyone hand-waves: how often a guardrail cries wolf. The benchmark is the
+new part; the gate is an honest implementation of a known idea. And to be precise about *how* it
+works: it's a **lexical** action layer (regex for `rm -rf`, `DROP TABLE`, `curl | bash`) **plus**
+a **non-lexical** provenance layer — not "dataflow instead of keywords," but both.
 
 ---
 
@@ -95,7 +106,7 @@ These are commitments, not features. They're the reason you can trust a security
 
 **1. We will never phone home.** Zero telemetry, zero analytics, no network calls of Airlock's own — ever. A security tool that exfiltrates your data to prove nothing is exfiltrating your data is a joke. The code is MIT; verify it.
 
-**2. We publish our false-alarm rate every release.** Not our catch rate — anyone can catch everything by blocking everything. The number that matters is **how often we interrupt you for nothing**, and we print it whether it's good or bad. No other guardrail publishes this. Ask them why.
+**2. We publish our false-alarm rate every release.** Not our catch rate — anyone can catch everything by blocking everything. The number that matters is **how often we interrupt you for nothing**, and we print it whether it's good or bad. I haven't found another installable agent guardrail that publishes its false-alarm rate on a controlled set — if you know one, tell me and I'll link it.
 
 **3. Sixty seconds or we failed.** Install to first insight with no config file, no policy language, no account. If you have to *learn* Airlock before it helps you, we built it wrong.
 
