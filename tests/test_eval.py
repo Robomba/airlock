@@ -47,3 +47,14 @@ def test_numbers_are_computed_not_hardcoded():
     finally:
         E.dataset = orig
     assert no_benign == 0 and full >= 0 and (full != no_benign or full == 0)
+
+
+def test_transformed_exfil_is_a_known_miss():
+    """We publish our ceiling. A competent adversary defeats BOTH airlock signals at
+    once: gzip beats the byte fingerprint AND spacing the egress past the proximity
+    window beats the temporal-proximity heuristic. So BOTH airlock and the keyword
+    baseline miss it. If airlock ever 'catches' this, revisit honestly -- it would be
+    a new capability, not a bugfix."""
+    ex = next(e for e in dataset() if e.id == "m_exfil_gzip")
+    assert airlock_flags(ex.records) is False    # known blind spot, documented
+    assert keyword_flags(ex.records) is False
