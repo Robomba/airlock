@@ -135,6 +135,7 @@ A security tool that overclaims is worse than none. Airlock sees **actions, not 
 
 - **A genuinely malicious model with a covert channel.** If the model is the adversary and hides intent in benign-looking actions, Airlock can't read its mind.
 - **Anything outside the tool-call boundary.** If it doesn't go through a tool call Airlock can see, Airlock can't see it.
+- **The "acted after untrusted content" signal is a temporal-proximity heuristic, not true taint.** We can't see which datum actually influenced the model, so we flag high-risk actions within N steps of an untrusted read — with confidence that **decays** with distance and is **evadable** by simply spacing the action out past the window.
 - **Injection-provenance without secret egress.** A benign-*looking* action an agent runs because untrusted content told it to (no secret leaving) scores at **chance** in our own benchmark — Airlock ties the keyword baseline there. Airlock's real dataflow edge is secret-**egress**, not injection-provenance. We publish this miss (see `airlock eval`).
 - **Transformed exfil.** Byte-matching catches naive/base64/hex copies of a secret; gzip, encryption, or having the model paraphrase the secret defeat it. A competent adversary can get data out. It raises the cost; it is not a wall.
 - **Anything not routed through the adapter** — a subprocess the agent spawns, network made from inside a tool's own code, or an MCP server talked to out-of-band — is invisible.

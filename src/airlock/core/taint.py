@@ -6,9 +6,14 @@ read words. It tracks *where bytes came from* and *where they are going*:
   * **Provenance** — every tool RESULT is tagged trusted (the operator/host) or
     untrusted (web / email / file / MCP). Reading untrusted content taints the
     session.
-  * **Escalation** — a high-risk action within ``window`` steps of untrusted
-    content has its severity raised, because "the agent read a webpage and then
-    tried to POST somewhere" is the actual shape of a prompt-injection exploit.
+  * **Temporal-proximity heuristic** (formerly "escalation") — a high-risk action
+    within ``window`` steps of untrusted content has its severity raised, because
+    "the agent read a webpage and then tried to POST somewhere" is the actual shape
+    of a prompt-injection exploit. Be honest about what this is: a proximity
+    HEURISTIC, not true taint — we cannot see which datum actually influenced the
+    model at the tool boundary. Confidence DECAYS with distance (nearest step ~1.0,
+    edge of the window ~1/window) and it is trivially EVADABLE by spacing the action
+    more than ``window`` steps after the untrusted read.
   * **Egress matching** — when a secret or file is read, its bytes are
     fingerprinted with a rolling hash over overlapping shingles. When a later
     action's outbound payload contains those same bytes (even if the surrounding
@@ -281,6 +286,7 @@ class Observation:
     step: int
     tainted_session: bool = False
     escalated: bool = False
+    proximity: float = 0.0                   # decaying temporal-proximity weight (heuristic)
     taint_hit: bool = False                  # egress match found
     added_severity: Severity = Severity.NONE
     downstream_of: List[TaintEvent] = field(default_factory=list)
@@ -436,6 +442,12 @@ class TaintTracker:
         ):
             obs.escalated = True
             distance = self.step - self._last_untrusted_step
+            # Decaying confidence: nearest step ~1.0, edge of window ~1/window.
+            obs.proximity = round((self.window - distance + 1) / self.window, 2)
+            obs.reasons.append(
+                "temporal-proximity heuristic: high-risk action {} step(s) after untrusted "
+                "content (confidence {}, decays with distance; evadable by spacing > {} steps)"
+                .format(distance, obs.proximity, self.window))
             recent = [e for e in self.events if 0 < self.step - e.step <= self.window]
             obs.downstream_of = recent
             obs.added_severity = max(obs.added_severity, Severity.HIGH)
