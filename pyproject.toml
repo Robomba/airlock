@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "airlock-agent"
+name = "stopgate"
 version = "0.1.0"
 description = "Stop watching your agent. A local-first safety envelope that lets you run coding agents unattended."
 readme = "README.md"
@@ -17,19 +17,19 @@ classifiers = [
     "Topic :: Security",
     "Environment :: Console",
 ]
-# Deliberately ZERO runtime dependencies. Airlock makes no network calls of its own
+# Deliberately ZERO runtime dependencies. Stopgate makes no network calls of its own
 # and pulls in nothing that could. Standard library only. (Promise #1.)
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/Robomba/airlock"
-Source = "https://github.com/Robomba/airlock"
+Homepage = "https://github.com/Robomba/stopgate"
+Source = "https://github.com/Robomba/stopgate"
 
 [project.scripts]
-airlock = "airlock.cli:main"
+stopgate = "stopgate.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-airlock = ["data/*.jsonl"]
+stopgate = ["data/*.jsonl"]

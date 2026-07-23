@@ -1,6 +1,6 @@
 r"""THE MOAT — provenance, taint propagation, and egress matching.
 
-This is the part of Airlock that a lexical guardrail cannot copy. It does not
+This is the part of Stopgate that a lexical guardrail cannot copy. It does not
 read words. It tracks *where bytes came from* and *where they are going*:
 
   * **Provenance** — every tool RESULT is tagged trusted (the operator/host) or
@@ -251,7 +251,7 @@ class SecretRef:
     # Salted (hash, length) pairs. Populated ONLY when this ref was restored from
     # a persisted session, where the secret bytes are deliberately never written
     # to disk. Lets a sub-shingle-length secret still be matched on egress
-    # without Airlock ever storing the secret itself. See airlock.session.
+    # without Stopgate ever storing the secret itself. See stopgate.session.
     literal_hashes: List[Tuple[str, int]] = field(default_factory=list)
 
     @property

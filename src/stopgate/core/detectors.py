@@ -1,12 +1,12 @@
 r"""Action-class detectors — classify *what kind of operation* a call is.
 
 This layer is legitimately lexical: it reads :attr:`Action.text` and matches the
-compiled tables in :mod:`airlock.core.patterns` to decide whether a call is a
+compiled tables in :mod:`stopgate.core.patterns` to decide whether a call is a
 credential read, a network egress, a destructive command, and so on. It is the
 ``(a) action-class`` box in the architecture diagram — the *floor* of severity.
 
 It is emphatically NOT the moat. Vocabulary can be reworded past every table
-here; that is exactly why :mod:`airlock.core.taint` exists and why the policy
+here; that is exactly why :mod:`stopgate.core.taint` exists and why the policy
 engine composes the two. Nothing in this file references a capability it does
 not implement.
 """

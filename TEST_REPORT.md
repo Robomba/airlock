@@ -1,4 +1,4 @@
-# Airlock — Test Report
+# Stopgate — Test Report
 
 **Suite:** `python3 -m pytest -q` → **232 passed** (0.25s).
 Deterministic across `PYTHONHASHSEED` (Rabin-Karp, not `hash()`); clean under
@@ -15,7 +15,7 @@ untested modules**, fixed a **fail-open crash**, and cleared a **build gap**.
 line* — but it only guarded `json.loads`, not the record → `Action` build. A
 single log line carrying a **deeply nested JSON response** blew the Python stack
 in the recursive `_coerce_content`, raising `RecursionError`. `cli.cmd_report`
-catches only `OSError`, so `airlock report` on a hostile/broken log **crashed
+catches only `OSError`, so `stopgate report` on a hostile/broken log **crashed
 with a traceback** — the worst outcome for a security tool (control hands straight
 back to the agent).
 
@@ -81,7 +81,7 @@ spoofing (`superuser`, `attacker-user`); unknown provenance (fail-closed).
 
 ## What remains (not test gaps — noted for honesty)
 
-- **Packaging of the default fixture.** `airlock report` with no `--log` falls
+- **Packaging of the default fixture.** `stopgate report` with no `--log` falls
   back to `tests/fixtures/sample_session.jsonl`, which is not shipped in the
   wheel. Installed, that path returns a clean *"log not found"* (exit 2) rather
   than a demo — a **safe fail**, but a rough first-run UX. A later phase should

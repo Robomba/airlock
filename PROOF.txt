@@ -1,4 +1,4 @@
-AIRLOCK — PROOF OF WORK  (hardening round 1/3)
+STOPGATE — PROOF OF WORK  (hardening round 1/3)
 Captured 2026-07-13T20:44:18Z on Linux aarch64, Python 3.12.3
 All output below is REAL captured stdout/stderr — nothing hardcoded.
 ================================================================================
@@ -17,18 +17,18 @@ All output below is REAL captured stdout/stderr — nothing hardcoded.
 ================================================================================
 ### 2. CLEAN-ROOM BUILD + INSTALL  (exactly how a user would)
   $ python -m build --wheel
-Successfully built airlock_agent-0.1.0-py3-none-any.whl
-  $ pip install dist/airlock_agent-0.1.0-py3-none-any.whl   (into a fresh venv)
+Successfully built stopgate-0.1.0-py3-none-any.whl
+  $ pip install dist/stopgate-0.1.0-py3-none-any.whl   (into a fresh venv)
   fixture shipped inside the wheel:
-    ['airlock/data/sample_session.jsonl']
-  $ airlock --version
-    airlock 0.1.0
+    ['stopgate/data/sample_session.jsonl']
+  $ stopgate --version
+    stopgate 0.1.0
 
 ================================================================================
 ### 3. PRIMARY USER-FACING COMMANDS, run from /tmp (NOT the repo — zero config)
 
 --------------------------------------------------------------------------------
-$ airlock report        # the README headline command
+$ stopgate report        # the README headline command
 --------------------------------------------------------------------------------
 
   Scanning log sample_session.jsonl ... (no config needed, nothing sent anywhere)
@@ -62,16 +62,16 @@ $ airlock report        # the README headline command
    -->  step 6  step 8   messaging action 2 step(s) after untrusted read from 'web'
   ----------------------------------------------------------------
 
-  Airlock verdicts: 1 would notify, 3 would block until approved.
+  Stopgate verdicts: 1 would notify, 3 would block until approved.
 
-  Want Airlock to watch the next one?   airlock run -- claude "..."
+  Want Stopgate to watch the next one?   stopgate run -- claude "..."
   (unattended mode ships in a later phase; report is read-only today.)
 
 --------------------------------------------------------------------------------
-$ airlock digest        # the session receipt
+$ stopgate digest        # the session receipt
 --------------------------------------------------------------------------------
 
-  Airlock digest — session log sample_session.jsonl
+  Stopgate digest — session log sample_session.jsonl
   ──────────────────────────────────────────────────────────
 
   Ran 8 actions unattended. 4 needed you. 1 secret left the machine.
@@ -90,24 +90,24 @@ $ airlock digest        # the session receipt
   Files changed this session:
        (no files written)
 
-  No policy loaded — run `airlock learn` to teach Airlock your normal.
-  0 of Airlock's own network calls. Nothing was sent anywhere.
+  No policy loaded — run `stopgate learn` to teach Stopgate your normal.
+  0 of Stopgate's own network calls. Nothing was sent anywhere.
 
 --------------------------------------------------------------------------------
-$ airlock learn --out /tmp/airlock_proof.toml    # auto-learn an allow-policy
+$ stopgate learn --out /tmp/stopgate_proof.toml    # auto-learn an allow-policy
 --------------------------------------------------------------------------------
 
   Learned your normal from 1 session(s), 8 action(s) (5 routine harvested, 3 flagged/risky refused).
-  Wrote allow-policy: /tmp/airlock_proof.toml
+  Wrote allow-policy: /tmp/stopgate_proof.toml
     1 dir(s), 1 file(s), 2 domain(s), 3 tool(s).
   Observe-only: it suppresses known-normal noise in report/digest, never unblocks anything.
 
 
 --------------------------------------------------------------------------------
-$ airlock report --policy /tmp/airlock_proof.toml   # routine suppressed, signal kept
+$ stopgate report --policy /tmp/stopgate_proof.toml   # routine suppressed, signal kept
 --------------------------------------------------------------------------------
      1  outbound payload carried a secret read earlier   <- this is the one
-  Airlock verdicts: 0 would notify, 3 would block until approved.
+  Stopgate verdicts: 0 would notify, 3 would block until approved.
   2 known-normal action(s) suppressed by your policy (observe-only).
    ^ 2 routine actions suppressed, yet the exfil ('secret read earlier') is STILL surfaced.
 

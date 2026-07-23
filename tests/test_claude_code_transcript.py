@@ -1,21 +1,21 @@
-"""Airlock must understand the log format its users ACTUALLY have.
+"""Stopgate must understand the log format its users ACTUALLY have.
 
 Claude Code writes a nested transcript (~/.claude/projects/<cwd>/<uuid>.jsonl):
 tool calls live inside assistant `content` blocks, and their RESULTS arrive on a
-LATER line keyed by tool_use_id. Airlock's flat reader saw none of it -- pointing
-`airlock report` at a real session printed "0 actions, N unparseable". The
+LATER line keyed by tool_use_id. Stopgate's flat reader saw none of it -- pointing
+`stopgate report` at a real session printed "0 actions, N unparseable". The
 flagship zero-config command did nothing on the only log its users own.
 
 These tests pin the real shape, including the part that matters most: the RESULT
 must be re-attached to its call, because the result is where the secret bytes are.
-Without that, the dataflow layer has nothing to fingerprint and Airlock silently
+Without that, the dataflow layer has nothing to fingerprint and Stopgate silently
 degrades to a pattern matcher.
 """
 
 import json
 
-from airlock.engine import PolicyEngine, Verdict
-from airlock.logparse import parse_log
+from stopgate.engine import PolicyEngine, Verdict
+from stopgate.logparse import parse_log
 
 SECRET = "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY"
 

@@ -1,12 +1,12 @@
 r"""The policy engine — pure, deterministic, no I/O.
 
-Given an :class:`~airlock.core.action.Action` and the running session context
+Given an :class:`~stopgate.core.action.Action` and the running session context
 (the taint tracker), return a :class:`Decision`: ``allow`` / ``notify`` /
 ``block``, a severity, and a human-readable reason. It composes the two
 detection layers:
 
-  * ``(a)`` action-class — :func:`airlock.core.detectors.classify`
-  * ``(b)`` taint + dataflow — :class:`airlock.core.taint.TaintTracker`
+  * ``(a)`` action-class — :func:`stopgate.core.detectors.classify`
+  * ``(b)`` taint + dataflow — :class:`stopgate.core.taint.TaintTracker`
 
 Tiers (from the brief):
     low     -> allow + log
@@ -82,7 +82,7 @@ class PolicyEngine:
         if cls.reasons:
             reasons.append("; ".join(cls.reasons))
 
-        # Egress hit is the strongest signal Airlock has: a known secret's bytes
+        # Egress hit is the strongest signal Stopgate has: a known secret's bytes
         # are leaving the machine. Force a block regardless of vocabulary.
         if obs.taint_hit:
             severity = max(severity, Severity.CRITICAL)

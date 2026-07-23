@@ -1,4 +1,4 @@
-r"""airlock run — unattended supervision.
+r"""stopgate run — unattended supervision.
 
 Wrap an agent's tool-call stream through the policy engine + taint tracker so you
 can walk away: **auto-approve** in-policy / low-risk actions (don't wake the user),
@@ -7,7 +7,7 @@ and **hard-stop** the irreversible for a human no matter what a policy says.
 The hard-stop invariant lives in the engine (Promise #4: irreversible actions and
 egress/taint hits always resolve to BLOCK, regardless of any learned policy), so
 this module never has to re-derive it — it only decides whether to wake you. A
-learned policy can make Airlock quieter; it can never unblock the real thing.
+learned policy can make Stopgate quieter; it can never unblock the real thing.
 """
 
 from __future__ import annotations
@@ -99,7 +99,7 @@ def supervise(
 def render_run_summary(result: RunResult) -> str:
     """One-line-per-count summary printed before the full digest."""
     return (
-        "\n  airlock run — {} action(s) supervised\n"
+        "\n  stopgate run — {} action(s) supervised\n"
         "    {} auto-approved (in policy / low risk — you were not interrupted)\n"
         "    {} hard-stop(s) needed a human"
         "{}\n".format(

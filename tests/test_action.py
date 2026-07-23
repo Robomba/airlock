@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from airlock.core.action import (
+from stopgate.core.action import (
     ALL_KINDS,
     IRREVERSIBLE_KINDS,
     TRUSTED_SOURCES,

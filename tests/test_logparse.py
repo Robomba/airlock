@@ -1,4 +1,4 @@
-"""Unit + adversarial tests for the log adapter (:mod:`airlock.logparse`).
+"""Unit + adversarial tests for the log adapter (:mod:`stopgate.logparse`).
 
 The adapter turns whatever a Claude Code session/hook wrote to disk into
 normalized :class:`Action` objects. Its hard contract: it is a security-tool
@@ -15,8 +15,8 @@ import tempfile
 
 import pytest
 
-from airlock.core.action import ActionKind
-from airlock.logparse import (
+from stopgate.core.action import ActionKind
+from stopgate.logparse import (
     ParseStats,
     _coerce_content,
     _infer_kind,
@@ -250,7 +250,7 @@ class TestParseLog:
         # never crash the whole parse (fail-open is worse than useless).
         # Build the hostile line as raw TEXT. Using json.dumps() on an 8000-deep
         # object would blow the stack inside the *test* (it recurses per level),
-        # which is a property of the test host, not of Airlock. This is the real
+        # which is a property of the test host, not of Stopgate. This is the real
         # threat model anyway: a malicious line already sitting in a log file.
         depth = 8000
         blob = ('{"content":' * depth) + '"deep"' + ("}" * depth)

@@ -5,7 +5,7 @@ proves the tables match real malicious command strings — assembled at runtime
 via :func:`_asm` so the host's own lexical PreToolUse gate (which even rejoins
 adjacent Python string literals) never sees a whole scary token in the source.
 That the source of a security tool must hide from a keyword gate is precisely
-the failure mode Airlock's provenance/dataflow moat exists to fix.
+the failure mode Stopgate's provenance/dataflow moat exists to fix.
 
 It also asserts the detectors NEVER crash on odd input, because a security
 boundary that raises hands control straight back to the agent (fail-open).
@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import pytest
 
-from airlock.core import detectors as D
-from airlock.core import patterns as P
-from airlock.core.action import Action, ActionKind, Severity
+from stopgate.core import detectors as D
+from stopgate.core import patterns as P
+from stopgate.core.action import Action, ActionKind, Severity
 
 
 def _asm(*parts):

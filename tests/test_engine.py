@@ -1,4 +1,4 @@
-"""Integration tests for the pure policy engine (:mod:`airlock.engine`).
+"""Integration tests for the pure policy engine (:mod:`stopgate.engine`).
 
 The engine composes the action-class detectors with the taint tracker into one
 ``Decision``. These tests exercise the full tier mapping, Promise #4 (irreversible
@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from airlock.core.action import Action, ActionKind, Severity, ToolResult
-from airlock.engine import Decision, PolicyEngine, Verdict, _verdict_for
+from stopgate.core.action import Action, ActionKind, Severity, ToolResult
+from stopgate.engine import Decision, PolicyEngine, Verdict, _verdict_for
 
 
 def _asm(*parts):

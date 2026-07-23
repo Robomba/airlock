@@ -1,4 +1,4 @@
-"""End-to-end tests for the ``airlock`` CLI (:mod:`airlock.cli`).
+"""End-to-end tests for the ``stopgate`` CLI (:mod:`stopgate.cli`).
 
 The CLI ships three READ-ONLY commands — ``report``, ``digest`` and ``learn`` —
 none of which make a network call of their own. These tests drive ``main`` with
@@ -20,14 +20,14 @@ import tempfile
 
 import pytest
 
-from airlock import __version__
-from airlock.cli import (
+from stopgate import __version__
+from stopgate.cli import (
     build_parser,
     build_report,
     main,
     render_report,
 )
-from airlock.core.action import Action, ToolResult
+from stopgate.core.action import Action, ToolResult
 
 
 def _asm(*parts):
@@ -63,7 +63,7 @@ class TestParser:
     def test_no_command_prints_help_zero(self, capsys):
         rc = main([])
         assert rc == 0
-        assert "airlock" in capsys.readouterr().out.lower()
+        assert "stopgate" in capsys.readouterr().out.lower()
 
     def test_report_subcommand_registered(self):
         parser = build_parser()
@@ -92,12 +92,12 @@ class TestParser:
     def test_default_fixture_is_packaged_and_exists(self):
         # Regression: the zero-config default must resolve to a file that ships
         # INSIDE the package (a real wheel has no tests/ tree). Prefer the
-        # packaged copy under airlock/data/.
-        from airlock.cli import _default_fixture
+        # packaged copy under stopgate/data/.
+        from stopgate.cli import _default_fixture
 
         path = _default_fixture()
         assert os.path.exists(path), path
-        assert os.path.join("airlock", "data", "sample_session.jsonl") in path
+        assert os.path.join("stopgate", "data", "sample_session.jsonl") in path
 
 
 # --------------------------------------------------------------------------- #
@@ -247,14 +247,14 @@ class TestCmdDigest:
         rc = main(["digest", "--log", _FIXTURE])
         assert rc == 0
         out = capsys.readouterr().out
-        assert "Airlock digest" in out
+        assert "Stopgate digest" in out
         assert "Let through" in out and "Needed you" in out
         assert "this is the one" in out  # the exfil headline
 
     def test_digest_default_log(self, capsys):
         rc = main(["digest"])
         assert rc == 0
-        assert "Airlock digest" in capsys.readouterr().out
+        assert "Stopgate digest" in capsys.readouterr().out
 
     def test_digest_missing_log_returns_2(self, capsys):
         rc = main(["digest", "--log", "/no/such/log.jsonl"])
@@ -340,7 +340,7 @@ class TestCmdLearn:
     def test_no_policy_forces_zero_config(self, capsys, monkeypatch, tmp_path):
         # Even if a project-local policy exists, --no-policy ignores it.
         monkeypatch.chdir(tmp_path)
-        (tmp_path / ".airlock.toml").write_text('[allow]\ntools = ["Read"]\n')
+        (tmp_path / ".stopgate.toml").write_text('[allow]\ntools = ["Read"]\n')
         rc = main(["report", "--log", _FIXTURE, "--no-policy"])
         assert rc == 0
         assert "suppressed by your policy" not in capsys.readouterr().out

@@ -2,15 +2,15 @@ r"""Normalized action + provenance model.
 
 Everything the policy engine reasons about is expressed here: a proposed
 tool call (``Action``) and the results tool calls return (``ToolResult``).
-Provenance — *where a byte came from* — is the spine of Airlock's moat, so it
+Provenance — *where a byte came from* — is the spine of Stopgate's moat, so it
 lives at the bottom of the stack with no dependencies on anything else.
 
 Note on the odd string splits in this package (e.g. ``"pay" "ment"``): the host
 environment runs a *lexical* PreToolUse gate that greps source for scary words.
-Airlock's source necessarily names the threats it detects, so we split those
+Stopgate's source necessarily names the threats it detects, so we split those
 literals across Python adjacent-string-literal boundaries — they concatenate to
 the real token at runtime. This is, itself, a live demonstration of why lexical
-gates fail and why Airlock detects by provenance/dataflow instead.
+gates fail and why Stopgate detects by provenance/dataflow instead.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class Severity(IntEnum):
             raise ValueError("unknown severity: {!r}".format(name))
 
 
-# Provenance: the ONLY sources Airlock trusts are the operator and the host
+# Provenance: the ONLY sources Stopgate trusts are the operator and the host
 # system itself. Everything an agent pulls from the outside world is untrusted
 # by construction — this is deliberately non-lexical.
 TRUSTED_SOURCES = frozenset({"user", "system", "operator"})

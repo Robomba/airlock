@@ -1,8 +1,8 @@
-"""Tests for the auto-learned allow-policy (:mod:`airlock.policy`).
+"""Tests for the auto-learned allow-policy (:mod:`stopgate.policy`).
 
 Phase 2 shipped `policy.py` (learn + suppress) with no coverage. This suite
 locks in the two hard safety invariants first — a policy NEVER unblocks anything
-and Airlock NEVER learns an activity it flagged — then covers feature
+and Stopgate NEVER learns an activity it flagged — then covers feature
 extraction, the on-disk TOML round-trip, the stdlib-free `_mini_toml` fallback,
 and the forgiving loader (a broken policy must degrade to suppress-nothing, not
 crash a security tool).
@@ -17,9 +17,9 @@ import os
 import tempfile
 
 
-from airlock.core.action import Action, ActionKind, ToolResult
-from airlock.engine import PolicyEngine
-from airlock.policy import (
+from stopgate.core.action import Action, ActionKind, ToolResult
+from stopgate.engine import PolicyEngine
+from stopgate.policy import (
     Policy,
     _mini_toml,
     _norm_dir,
@@ -341,13 +341,13 @@ class TestDiscovery:
         fd, path = tempfile.mkstemp(suffix=".toml")
         os.close(fd)
         try:
-            monkeypatch.setenv("AIRLOCK_POLICY", path)
+            monkeypatch.setenv("STOPGATE_POLICY", path)
             assert discover_policy_path() == path
         finally:
             os.unlink(path)
 
     def test_env_override_ignored_when_missing(self, monkeypatch):
-        monkeypatch.setenv("AIRLOCK_POLICY", "/no/such/thing.toml")
+        monkeypatch.setenv("STOPGATE_POLICY", "/no/such/thing.toml")
         # falls through to project-local / per-user discovery (may be None)
         got = discover_policy_path()
         assert got != "/no/such/thing.toml"

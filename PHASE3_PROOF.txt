@@ -1,8 +1,8 @@
-AIRLOCK — PHASE 3 PROOF   (generated Tue Jul 14 12:50:11 AM UTC 2026, independent verification in a clean venv)
-Phase 3 = 'airlock run' unattended mode + 'airlock hook' (live PreToolUse gate). Real output.
+STOPGATE — PHASE 3 PROOF   (generated Tue Jul 14 12:50:11 AM UTC 2026, independent verification in a clean venv)
+Phase 3 = 'stopgate run' unattended mode + 'stopgate hook' (live PreToolUse gate). Real output.
 
 === 1. CLI now has run + hook ===
-usage: airlock [-h] [--version] {report,digest,learn,run,hook} ...
+usage: stopgate [-h] [--version] {report,digest,learn,run,hook} ...
 
 Stop watching your agent. Local-first, zero-config safety for coding agents.
 --
@@ -15,16 +15,16 @@ Stop watching your agent. Local-first, zero-config safety for coding agents.
 ..........................                                               [100%]
 314 passed in 0.33s
 
-=== 3. airlock run --log (supervise a recorded session; --deny-all = non-interactive) ===
-  [airlock] HARD-STOP step 5: Bash — network egress | EGRESS: bytes of secret '/home/dev/app/.env' from step 4 are leaving in this payload
-  [airlock] HARD-STOP step 7: Bash — destructive / irreversible operation | destructive action 1 step(s) after reading untrusted content
-  [airlock] HARD-STOP step 8: Bash — publish / send-on-your-behalf | messaging action 2 step(s) after reading untrusted content
+=== 3. stopgate run --log (supervise a recorded session; --deny-all = non-interactive) ===
+  [stopgate] HARD-STOP step 5: Bash — network egress | EGRESS: bytes of secret '/home/dev/app/.env' from step 4 are leaving in this payload
+  [stopgate] HARD-STOP step 7: Bash — destructive / irreversible operation | destructive action 1 step(s) after reading untrusted content
+  [stopgate] HARD-STOP step 8: Bash — publish / send-on-your-behalf | messaging action 2 step(s) after reading untrusted content
 
-  airlock run — 8 action(s) supervised
+  stopgate run — 8 action(s) supervised
     5 auto-approved (in policy / low risk — you were not interrupted)
     3 hard-stop(s) needed a human — 3 blocked (denied), 0 approved
 
-  Airlock digest — supervised run of sample_session.jsonl
+  Stopgate digest — supervised run of sample_session.jsonl
   ──────────────────────────────────────────────────────────
 
   Ran 8 actions unattended. 4 needed you. 1 secret left the machine.
@@ -45,10 +45,10 @@ still cannot suppress a secret-exfil / destructive hard-stop.
 .                                                                        [100%]
 1 passed in 0.01s
 
-=== 5. airlock hook — live gate on a destructive tool event ===
-{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "airlock: destructive / irreversible operation"}}
+=== 5. stopgate hook — live gate on a destructive tool event ===
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "stopgate: destructive / irreversible operation"}}
    (benign read:)
-{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "permissionDecisionReason": "airlock: adapter-tagged: read"}}
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "permissionDecisionReason": "stopgate: adapter-tagged: read"}}
 
 === VERDICT: run auto-approves in-policy + hard-stops the irreversible;
 a policy can never unblock a hard-stop; hook is a real PreToolUse gate. All tests green.

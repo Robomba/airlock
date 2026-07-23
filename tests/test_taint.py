@@ -1,5 +1,5 @@
 """Unit + adversarial tests for THE MOAT: provenance, taint propagation, and
-egress matching (:mod:`airlock.core.taint`).
+egress matching (:mod:`stopgate.core.taint`).
 
 The scary command/secret strings are assembled from fragments — same convention
 as the package source — so a lexical gate over this file never sees the whole
@@ -11,8 +11,8 @@ from __future__ import annotations
 import base64
 
 
-from airlock.core.action import Action, Severity, ToolResult
-from airlock.core.taint import (
+from stopgate.core.action import Action, Severity, ToolResult
+from stopgate.core.taint import (
     _MATCH_RATIO,
     SecretRef,
     TaintTracker,

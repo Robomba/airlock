@@ -33,4 +33,4 @@ jobs:
       - name: Tests
         run: python -m pytest -q
       - name: The benchmark must actually run, and its strict checks must pass
-        run: python -m airlock.cli eval
+        run: python -m stopgate.cli eval

@@ -1,7 +1,7 @@
 """Test isolation.
 
-Airlock resolves its mode from ambient state: `$AIRLOCK_MODE`, and failing that a
-`~/.airlock-mode` FILE. That means a bare test run silently inherits the mode of
+Stopgate resolves its mode from ambient state: `$STOPGATE_MODE`, and failing that a
+`~/.stopgate-mode` FILE. That means a bare test run silently inherits the mode of
 whatever machine it happens to execute on. It bit us for real: the suite was green
 in CI and on a fresh box, then went red the moment the DGX was set to `observe` --
 because observe correctly suppresses the very blocks the tests assert. The tests
@@ -18,8 +18,8 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _isolate_ambient_state(tmp_path, monkeypatch):
-    monkeypatch.delenv("AIRLOCK_MODE", raising=False)
-    monkeypatch.delenv("AIRLOCK_HEADLESS", raising=False)
+    monkeypatch.delenv("STOPGATE_MODE", raising=False)
+    monkeypatch.delenv("STOPGATE_HEADLESS", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(
         os.path, "expanduser",

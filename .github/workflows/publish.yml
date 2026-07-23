@@ -7,9 +7,9 @@ name: Publish to PyPI
 #   1. Log in at https://pypi.org  ->  Your projects  ->  Publishing  (or:
 #      https://pypi.org/manage/account/publishing/ )
 #   2. Add a "pending" trusted publisher with EXACTLY:
-#        PyPI project name : airlock-agent
+#        PyPI project name : stopgate
 #        Owner             : Robomba
-#        Repository        : airlock
+#        Repository        : stopgate
 #        Workflow name     : publish.yml
 #        Environment       : (leave blank)
 #   3. Save. That's it — no token, no password in GitHub.

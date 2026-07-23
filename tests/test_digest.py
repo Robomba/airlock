@@ -1,4 +1,4 @@
-"""Tests for the session receipt (:mod:`airlock.digest`).
+"""Tests for the session receipt (:mod:`stopgate.digest`).
 
 Phase 2 shipped `digest.py` with no coverage. The digest's whole promise is that
 it LEADS with what was let through and why it was safe, and that the "needed you"
@@ -12,16 +12,16 @@ Scary tokens are assembled at runtime (`_asm`).
 
 from __future__ import annotations
 
-from airlock.core.action import Action, ActionKind, ToolResult
-from airlock.digest import (
+from stopgate.core.action import Action, ActionKind, ToolResult
+from stopgate.digest import (
     StepView,
     _attention_reason,
     _safe_reason,
     analyze,
     render_digest,
 )
-from airlock.engine import PolicyEngine, Verdict
-from airlock.policy import Policy
+from stopgate.engine import PolicyEngine, Verdict
+from stopgate.policy import Policy
 
 AWS_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 
@@ -158,11 +158,11 @@ class TestRender:
     def test_render_exfil(self):
         dg = analyze(_exfil_actions())
         out = render_digest(dg, "session log test", None)
-        assert "Airlock digest" in out
+        assert "Stopgate digest" in out
         assert "Let through" in out
         assert "Needed you" in out
         assert "Nothing was sent anywhere" in out
-        assert "airlock learn" in out  # nudge when no policy
+        assert "stopgate learn" in out  # nudge when no policy
 
     def test_render_with_policy_label(self):
         dg = analyze(_exfil_actions())

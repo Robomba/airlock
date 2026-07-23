@@ -1,22 +1,22 @@
-# Airlock
+# Stopgate
 
-[![CI](https://github.com/Robomba/airlock/actions/workflows/ci.yml/badge.svg)](https://github.com/Robomba/airlock/actions/workflows/ci.yml)
+[![CI](https://github.com/Robomba/stopgate/actions/workflows/ci.yml/badge.svg)](https://github.com/Robomba/stopgate/actions/workflows/ci.yml)
 &nbsp;·&nbsp; MIT &nbsp;·&nbsp; zero runtime deps &nbsp;·&nbsp; runs entirely on your machine
 
 ### Stop watching your agent.
 
 You don't babysit your coding agent because it's dangerous. You babysit it because you can't tell the difference between it *reading a file* and it *reading your `.env` and POSTing it to an IP it found in a README.*
 
-Airlock can. So you can go do something else.
+Stopgate can. So you can go do something else.
 
 ```bash
-pip install airlock-agent
-airlock report
+pip install stopgate
+stopgate report
 ```
 
-> The PyPI package is **`airlock-agent`** (plain `airlock` is an unrelated project); the
-> command is just `airlock`. For the bleeding edge:
-> `pip install "git+https://github.com/Robomba/airlock.git"`.
+> The PyPI package is **`stopgate`** (plain `stopgate` is an unrelated project); the
+> command is just `stopgate`. For the bleeding edge:
+> `pip install "git+https://github.com/Robomba/stopgate.git"`.
 
 No config. It reads the logs your agent already wrote and tells you what it's been doing.
 
@@ -38,12 +38,12 @@ No config. It reads the logs your agent already wrote and tells you what it's be
 
 Most guardrails you can `pip install` today match **keywords**. We published the benchmark showing that doesn't work: a bag-of-words classifier with no model at all scores **0.967** on the standard harm benchmark — and **0.493 (chance)** the moment the attacker stops using the obvious words. Keyword guardrails aren't detecting intent. They're detecting vocabulary. ([AICES paper](https://github.com/Robomba/ai-control-eval-suite) · [dataset](https://huggingface.co/datasets/Robomb/aices-minpair-control))
 
-Airlock watches **where data came from and where it's going.** It tracks which tool results are untrusted (web/email/file/MCP), taints the session when the agent reads them, and fingerprints every secret it sees so it can spot that secret leaving the machine — **even base64-encoded.** *"The agent read `evil.com`, then tried to POST your `.env`"* is not a wording problem. You can't rephrase your way past a hash comparison.
+Stopgate watches **where data came from and where it's going.** It tracks which tool results are untrusted (web/email/file/MCP), taints the session when the agent reads them, and fingerprints every secret it sees so it can spot that secret leaving the machine — **even base64-encoded.** *"The agent read `evil.com`, then tried to POST your `.env`"* is not a wording problem. You can't rephrase your way past a hash comparison.
 
 **This isn't a new idea, and I won't pretend it is.** Provenance/dataflow defenses for
 agents already exist in research: DeepMind's [CaMeL](https://arxiv.org/abs/2503.18813),
 [Invariant Labs](https://invariantlabs.ai/) (acquired into Snyk), Meta's
-[LlamaFirewall](https://arxiv.org/abs/2505.03574). Airlock's contribution is **not** the
+[LlamaFirewall](https://arxiv.org/abs/2505.03574). Stopgate's contribution is **not** the
 concept — it's (1) a zero-config build you can install and run against your own Claude Code
 sessions today, and (2) an **open, minimal-pair controlled benchmark for agent actions** that
 measures the thing everyone hand-waves: how often a guardrail cries wolf. The benchmark is the
@@ -55,21 +55,21 @@ a **non-lexical** provenance layer — not "dataflow instead of keywords," but b
 
 ## Turn it on (live gating)
 
-Airlock plugs into Claude Code as two hooks. **You need both.**
+Stopgate plugs into Claude Code as two hooks. **You need both.**
 
 ```jsonc
 // ~/.claude/settings.json
 {
   "hooks": {
-    "PreToolUse":  [{ "matcher": "*", "hooks": [{ "type": "command", "command": "airlock hook"  }] }],
-    "PostToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "airlock watch" }] }]
+    "PreToolUse":  [{ "matcher": "*", "hooks": [{ "type": "command", "command": "stopgate hook"  }] }],
+    "PostToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "stopgate watch" }] }]
   }
 }
 ```
 
 Why two? `PreToolUse` fires *before* a tool runs, so it never sees a **result** —
-no result, no secret bytes, nothing to fingerprint. `airlock watch` (PostToolUse)
-is the only place a secret can actually be captured. **Without `watch`, Airlock
+no result, no secret bytes, nothing to fingerprint. `stopgate watch` (PostToolUse)
+is the only place a secret can actually be captured. **Without `watch`, Stopgate
 can only judge one action at a time and cross-call exfiltration is not detected.**
 With it, "read the `.env` at step 3, POST it to an unknown host at step 19" is
 caught — the payload at step 19 looks innocent on its own.
@@ -82,33 +82,33 @@ caught — the payload at step 19 looks innocent on its own.
 | `enforce` *(default)* | A hard-stop surfaces to you as an **ask**. Everything else auto-approves. | You're at the keyboard. |
 | `enforce --headless` | A hard-stop **denies** instead of asking. | Nobody is there — an "ask" nobody answers is a hang, not a guardrail. |
 
-Set with `--mode`, or `$AIRLOCK_MODE`, or a `~/.airlock-mode` file.
+Set with `--mode`, or `$STOPGATE_MODE`, or a `~/.stopgate-mode` file.
 
-**Kill switch:** `echo observe > ~/.airlock-mode` — instantly back to logging-only,
+**Kill switch:** `echo observe > ~/.stopgate-mode` — instantly back to logging-only,
 no restart, no config edit.
 
 ### What it never does
 
-Airlock **never writes your secrets to disk.** Session state holds only rolling-hash
+Stopgate **never writes your secrets to disk.** Session state holds only rolling-hash
 fingerprints and salted hashes — enough to recognise those bytes trying to leave,
 not enough to reconstruct them. A stolen state file yields nothing. (State lives in
-`~/.cache/airlock/sessions`, mode `0600`, expires after 7 days.)
+`~/.cache/stopgate/sessions`, mode `0600`, expires after 7 days.)
 
-It also **fails open, on purpose**: if Airlock itself errors, the tool call is
+It also **fails open, on purpose**: if Stopgate itself errors, the tool call is
 allowed and the error is logged. A broken guardrail must never brick the agent it
 is watching. That is a deliberate trade-off, and it is the honest one to state:
-**Airlock is a safety net, not a guarantee.** It can miss things. Do not use it as
+**Stopgate is a safety net, not a guarantee.** It can miss things. Do not use it as
 the only thing standing between an agent and something you cannot undo.
 
 ## Our promises
 
 These are commitments, not features. They're the reason you can trust a security tool you didn't write.
 
-**1. We will never phone home.** Zero telemetry, zero analytics, no network calls of Airlock's own — ever. A security tool that exfiltrates your data to prove nothing is exfiltrating your data is a joke. The code is MIT; verify it.
+**1. We will never phone home.** Zero telemetry, zero analytics, no network calls of Stopgate's own — ever. A security tool that exfiltrates your data to prove nothing is exfiltrating your data is a joke. The code is MIT; verify it.
 
 **2. We publish our false-alarm rate every release.** Not our catch rate — anyone can catch everything by blocking everything. The number that matters is **how often we interrupt you for nothing**, and we print it whether it's good or bad. I haven't found another installable agent guardrail that publishes its false-alarm rate on a controlled set — if you know one, tell me and I'll link it.
 
-**3. Sixty seconds or we failed.** Install to first insight with no config file, no policy language, no account. If you have to *learn* Airlock before it helps you, we built it wrong.
+**3. Sixty seconds or we failed.** Install to first insight with no config file, no policy language, no account. If you have to *learn* Stopgate before it helps you, we built it wrong.
 
 **4. Some things always stop for a human.** Money moving, production, anything irreversible — those wake you up no matter what your policy says. No "trust level" will ever override that. If a tool offers to fully automate spending your money, close the tab.
 
@@ -123,39 +123,39 @@ These are commitments, not features. They're the reason you can trust a security
 
 ## ⚠ Disclaimer
 
-**Airlock is best-effort and will make mistakes.** It can miss real attacks and flag safe
+**Stopgate is best-effort and will make mistakes.** It can miss real attacks and flag safe
 actions. It is **not a guarantee of safety**, not a substitute for code review or OS
 sandboxing, and is provided **AS IS with no warranty** (MIT). Benchmark numbers come from a
 small, non-human-audited seed set and are indicative, not definitive. **You are responsible
 for what your agent does.** Full text: [DISCLAIMER.md](DISCLAIMER.md).
 
-## What Airlock does NOT catch
+## What Stopgate does NOT catch
 
-A security tool that overclaims is worse than none. Airlock sees **actions, not thoughts.**
+A security tool that overclaims is worse than none. Stopgate sees **actions, not thoughts.**
 
-- **A genuinely malicious model with a covert channel.** If the model is the adversary and hides intent in benign-looking actions, Airlock can't read its mind.
-- **Anything outside the tool-call boundary.** If it doesn't go through a tool call Airlock can see, Airlock can't see it.
+- **A genuinely malicious model with a covert channel.** If the model is the adversary and hides intent in benign-looking actions, Stopgate can't read its mind.
+- **Anything outside the tool-call boundary.** If it doesn't go through a tool call Stopgate can see, Stopgate can't see it.
 - **The "acted after untrusted content" signal is a temporal-proximity heuristic, not true taint.** We can't see which datum actually influenced the model, so we flag high-risk actions within N steps of an untrusted read — with confidence that **decays** with distance and is **evadable** by simply spacing the action out past the window.
-- **Injection-provenance without secret egress.** A benign-*looking* action an agent runs because untrusted content told it to (no secret leaving) scores at **chance** in our own benchmark — Airlock ties the keyword baseline there. Airlock's real dataflow edge is secret-**egress**, not injection-provenance. We publish this miss (see `airlock eval`).
+- **Injection-provenance without secret egress.** A benign-*looking* action an agent runs because untrusted content told it to (no secret leaving) scores at **chance** in our own benchmark — Stopgate ties the keyword baseline there. Stopgate's real dataflow edge is secret-**egress**, not injection-provenance. We publish this miss (see `stopgate eval`).
 - **Transformed exfil.** Byte-matching catches naive/base64/hex copies of a secret; gzip, encryption, or having the model paraphrase the secret defeat it. A competent adversary can get data out. It raises the cost; it is not a wall.
 - **Anything not routed through the adapter** — a subprocess the agent spawns, network made from inside a tool's own code, or an MCP server talked to out-of-band — is invisible.
 - **Closed chat UIs** (ChatGPT / Claude web). There's no interception point.
-- **It is not a substitute for OS-level sandboxing.** Run untrusted agents in a container/VM. Airlock is a layer on top, not a replacement.
+- **It is not a substitute for OS-level sandboxing.** Run untrusted agents in a container/VM. Stopgate is a layer on top, not a replacement.
 
-Airlock **reduces babysitting; it does not eliminate risk.**
+Stopgate **reduces babysitting; it does not eliminate risk.**
 
 ---
 
 ## Status
 
 **Shipped (local, verified):**
-- `airlock report` — read-only, zero-config: what your agent has been doing.
-- `airlock digest` — the session receipt: what was let through and *why it was safe*.
-- `airlock learn` — writes an editable allow-policy from your own sessions (opt-in tuning).
-- `airlock run` — unattended supervision: **auto-approve in-policy, hard-stop the irreversible.** Money, production, destructive, sign-in, install, and any secret leaving the machine always stop for a human — no policy can override that.
-- `airlock hook` — the live Claude Code PreToolUse gate (returns allow / ask per tool call).
+- `stopgate report` — read-only, zero-config: what your agent has been doing.
+- `stopgate digest` — the session receipt: what was let through and *why it was safe*.
+- `stopgate learn` — writes an editable allow-policy from your own sessions (opt-in tuning).
+- `stopgate run` — unattended supervision: **auto-approve in-policy, hard-stop the irreversible.** Money, production, destructive, sign-in, install, and any secret leaving the machine always stop for a human — no policy can override that.
+- `stopgate hook` — the live Claude Code PreToolUse gate (returns allow / ask per tool call).
 
-**Next:** `airlock eval` — the public precision benchmark (false alarms per 1,000 actions).
+**Next:** `stopgate eval` — the public precision benchmark (false alarms per 1,000 actions).
 
 
 ## License

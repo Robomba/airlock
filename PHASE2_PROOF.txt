@@ -1,10 +1,10 @@
-AIRLOCK — PHASE 2 PROOF   (generated Mon Jul 13 08:53:17 PM UTC 2026 by independent verification in a clean venv)
+STOPGATE — PHASE 2 PROOF   (generated Mon Jul 13 08:53:17 PM UTC 2026 by independent verification in a clean venv)
 Phase 2 = session digest + auto-learned policy. Every number is real command output.
 
 ==========================================================
 1. INSTALL — 3 commands present
 ==========================================================
-usage: airlock [-h] [--version] {report,digest,learn} ...
+usage: stopgate [-h] [--version] {report,digest,learn} ...
 
 Stop watching your agent. Local-first, zero-config safety for coding agents.
 
@@ -25,7 +25,7 @@ positional arguments:
 306 passed in 0.31s
 
 ==========================================================
-3. airlock learn — writes an editable allow-policy from your own sessions
+3. stopgate learn — writes an editable allow-policy from your own sessions
 ==========================================================
 
   Learned your normal from 1 session(s), 8 action(s) (5 routine harvested, 3 flagged/risky refused).
@@ -56,11 +56,11 @@ domains = [
 tools = [
 
 ==========================================================
-4. airlock digest --policy — the receipt (let-through + why safe), and
+4. stopgate digest --policy — the receipt (let-through + why safe), and
    the DECISIVE phase-2 claim: policy cuts false positives WITHOUT hiding the real hit
 ==========================================================
 
-  Airlock digest — session log sample_session.jsonl
+  Stopgate digest — session log sample_session.jsonl
   ──────────────────────────────────────────────────────────
 
   Ran 8 actions unattended. 3 needed you. 1 secret left the machine.
@@ -82,7 +82,7 @@ tools = [
        (no files written)
 
   Policy: learned.toml (observe-only — never used to unblock).
-  0 of Airlock's own network calls. Nothing was sent anywhere.
+  0 of Stopgate's own network calls. Nothing was sent anywhere.
 
 ==========================================================
 VERDICT: digest receipt works; learn writes a readable policy; the policy

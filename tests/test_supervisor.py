@@ -1,6 +1,6 @@
-"""Phase 3 (v2): airlock run — unattended supervision.
+"""Phase 3 (v2): stopgate run — unattended supervision.
 
-The safety-critical property under test: a learned policy can make Airlock
+The safety-critical property under test: a learned policy can make Stopgate
 quieter, but it can NEVER unblock an irreversible action or a secret leaving the
 machine. Those always stop for a human (Promise #4).
 """
@@ -10,12 +10,12 @@ import io
 import json
 from contextlib import redirect_stdout
 
-from airlock.core.action import Action, ActionKind
-from airlock.engine import PolicyEngine, Verdict
-from airlock.policy import Policy, suppression
-from airlock.logparse import parse_log
-from airlock.supervisor import supervise
-from airlock import cli
+from stopgate.core.action import Action, ActionKind
+from stopgate.engine import PolicyEngine, Verdict
+from stopgate.policy import Policy, suppression
+from stopgate.logparse import parse_log
+from stopgate.supervisor import supervise
+from stopgate import cli
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "sample_session.jsonl")
 
@@ -93,7 +93,7 @@ class TestRunCli:
         with redirect_stdout(buf):
             rc = cli.main(["run", "--", "claude", "do a thing"])
         out = buf.getvalue()
-        assert "PreToolUse" in out and "airlock hook" in out
+        assert "PreToolUse" in out and "stopgate hook" in out
         assert rc == 0
 
 

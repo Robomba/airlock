@@ -1,12 +1,12 @@
-r"""``airlock`` command-line interface.
+r"""``stopgate`` command-line interface.
 
 Commands (all READ-ONLY, ZERO CONFIG to start, no network of their own):
 
-  * ``airlock report`` — the first-60-seconds summary of what the agent has been
+  * ``stopgate report`` — the first-60-seconds summary of what the agent has been
     doing, replayed from its existing logs (Phase 1).
-  * ``airlock digest`` — a short session receipt that leads with what Airlock
+  * ``stopgate digest`` — a short session receipt that leads with what Stopgate
     *let through and why that was safe*, not only what it flagged (Phase 2).
-  * ``airlock learn``  — observe the user's own past sessions and write a
+  * ``stopgate learn``  — observe the user's own past sessions and write a
     human-editable allow-policy that suppresses known-normal activity (Phase 2).
 
 ``run``/``eval`` are intentionally NOT here yet; this CLI never advertises a
@@ -77,7 +77,7 @@ def build_report(actions: List[Action], policy: Optional[Policy] = None) -> Dict
     report shows the anomalies, not the routine. With ``policy=None`` — the
     zero-config default — nothing is suppressed and the output is unchanged.
     A policy can never suppress a taint hit, an escalation, or an irreversible
-    action; that invariant lives in :func:`airlock.policy.suppression`.
+    action; that invariant lives in :func:`stopgate.policy.suppression`.
     """
     engine = PolicyEngine()
     cred_reads: List[str] = []
@@ -203,7 +203,7 @@ def render_report(rep: Dict[str, object], source_label: str) -> str:
 
     # honest summary of what the engine would have done
     lines.append(
-        "  Airlock verdicts: {} would notify, {} would block until approved.".format(
+        "  Stopgate verdicts: {} would notify, {} would block until approved.".format(
             rep["notify"], rep["blocked"]
         )
     )
@@ -214,7 +214,7 @@ def render_report(rep: Dict[str, object], source_label: str) -> str:
             )
         )
     lines.append("")
-    lines.append('  Want Airlock to watch the next one?   airlock run -- claude "..."')
+    lines.append('  Want Stopgate to watch the next one?   stopgate run -- claude "..."')
     lines.append("  (unattended mode ships in a later phase; report is read-only today.)")
     lines.append("")
     return "\n".join(lines)
@@ -264,7 +264,7 @@ def _resolve_policy(args: argparse.Namespace) -> "tuple[Optional[Policy], Option
 
 def _warn_footer() -> None:
     sys.stderr.write(
-        "\n  ⚠ Airlock is best-effort and can miss attacks or flag safe actions "
+        "\n  ⚠ Stopgate is best-effort and can miss attacks or flag safe actions "
         "— not a guarantee; see DISCLAIMER.md.\n")
 
 
@@ -274,7 +274,7 @@ def cmd_report(args: argparse.Namespace) -> int:
         actions, stats = _load_log_or_die(log_path)
         policy, _plabel = _resolve_policy(args)
     except _CliError as exc:
-        sys.stderr.write("airlock: {}\n".format(exc))
+        sys.stderr.write("stopgate: {}\n".format(exc))
         return 2
     label = "log {}".format(os.path.basename(log_path))
     if not actions:
@@ -302,7 +302,7 @@ def cmd_digest(args: argparse.Namespace) -> int:
         actions, stats = _load_log_or_die(log_path)
         policy, plabel = _resolve_policy(args)
     except _CliError as exc:
-        sys.stderr.write("airlock: {}\n".format(exc))
+        sys.stderr.write("stopgate: {}\n".format(exc))
         return 2
     label = "session log {}".format(os.path.basename(log_path))
     if not actions:
@@ -326,7 +326,7 @@ def cmd_learn(args: argparse.Namespace) -> int:
         try:
             actions, _stats = _load_log_or_die(log_path)
         except _CliError as exc:
-            sys.stderr.write("airlock: {}\n".format(exc))
+            sys.stderr.write("stopgate: {}\n".format(exc))
             return 2
         if not actions:
             continue
@@ -341,7 +341,7 @@ def cmd_learn(args: argparse.Namespace) -> int:
         total.excluded += stats.excluded
 
     if base is None:
-        sys.stderr.write("airlock: no agent actions found in the given log(s) — nothing to learn.\n")
+        sys.stderr.write("stopgate: no agent actions found in the given log(s) — nothing to learn.\n")
         return 2
 
     total.sessions = n_sessions
@@ -357,7 +357,7 @@ def cmd_learn(args: argparse.Namespace) -> int:
     try:
         policymod.save_policy(base, out_path)
     except OSError as exc:
-        sys.stderr.write("airlock: could not write policy {}: {}\n".format(out_path, exc))
+        sys.stderr.write("stopgate: could not write policy {}: {}\n".format(out_path, exc))
         return 2
 
     sys.stdout.write(
@@ -383,10 +383,10 @@ def cmd_learn(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="airlock",
+        prog="stopgate",
         description="Stop watching your agent. Local-first, zero-config safety for coding agents.",
     )
-    p.add_argument("--version", action="version", version="airlock {}".format(__version__))
+    p.add_argument("--version", action="version", version="stopgate {}".format(__version__))
     sub = p.add_subparsers(dest="command")
 
     rep = sub.add_parser(
@@ -429,8 +429,8 @@ def build_parser() -> argparse.ArgumentParser:
     lrn.add_argument(
         "--out",
         default=None,
-        help="where to write the policy (default: ./.airlock.toml if present, "
-        "else ~/.airlock/policy.toml)",
+        help="where to write the policy (default: ./.stopgate.toml if present, "
+        "else ~/.stopgate/policy.toml)",
     )
     lrn.add_argument(
         "--now",
@@ -458,8 +458,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hookp.add_argument(
         "--mode", choices=["observe", "enforce"], default=None,
-        help="observe = log only, never block (default: $AIRLOCK_MODE, "
-             "~/.airlock-mode, else enforce)",
+        help="observe = log only, never block (default: $STOPGATE_MODE, "
+             "~/.stopgate-mode, else enforce)",
     )
     hookp.add_argument(
         "--headless", action="store_true",
@@ -491,16 +491,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     cmd = [c for c in (getattr(args, "cmd", None) or []) if c != "--"]
     if cmd:
         # Live mode. True interception of a child agent happens through Claude
-        # Code's PreToolUse hook (see `airlock hook`); we do not silently run an
+        # Code's PreToolUse hook (see `stopgate hook`); we do not silently run an
         # ungated agent and pretend it was watched.
         sys.stdout.write(
             "\n  Live gating runs through Claude Code's PreToolUse hook.\n"
             "  Add this to your Claude Code settings (once):\n\n"
             '      "hooks": {"PreToolUse": [{"hooks": [{"type": "command",\n'
-            '                 "command": "airlock hook"}]}]}\n\n'
+            '                 "command": "stopgate hook"}]}]}\n\n'
             "  Then every tool call in `%s ...` is gated live: in-policy actions\n"
             "  pass, and money/prod/destructive/egress stop for you.\n"
-            "  To preview supervision on a recorded session: airlock run --log <file>\n\n"
+            "  To preview supervision on a recorded session: stopgate run --log <file>\n\n"
             % cmd[0]
         )
         return 0
@@ -509,7 +509,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         actions, stats = _load_log_or_die(log_path)
         policy, plabel = _resolve_policy(args)
     except _CliError as exc:
-        sys.stderr.write("airlock: {}\n".format(exc))
+        sys.stderr.write("stopgate: {}\n".format(exc))
         return 2
     if args.approve_all:
         def approver(a, d):
@@ -525,7 +525,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 return False
             return ans.strip().lower() in ("y", "yes")
     def notifier(m):
-        sys.stderr.write("  [airlock] " + m + "\n")
+        sys.stderr.write("  [stopgate] " + m + "\n")
     result = supervise(actions, approver=approver, notifier=notifier)
     sys.stdout.write(render_run_summary(result))
     dg = analyze(actions, policy=policy)
@@ -540,18 +540,18 @@ def _hook_emit(word: str, reason: str) -> int:
     out = {"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": word,
-        "permissionDecisionReason": "airlock: " + reason}}
+        "permissionDecisionReason": "stopgate: " + reason}}
     sys.stdout.write(json.dumps(out))
     return 0
 
 
 def _resolve_mode(flag: Optional[str]) -> str:
-    """--mode, else $AIRLOCK_MODE, else ~/.airlock-mode, else enforce."""
+    """--mode, else $STOPGATE_MODE, else ~/.stopgate-mode, else enforce."""
     import os as _os
-    m = (flag or _os.environ.get("AIRLOCK_MODE") or "").strip().lower()
+    m = (flag or _os.environ.get("STOPGATE_MODE") or "").strip().lower()
     if not m:
         try:
-            with open(_os.path.join(_os.path.expanduser("~"), ".airlock-mode")) as fh:
+            with open(_os.path.join(_os.path.expanduser("~"), ".stopgate-mode")) as fh:
                 m = fh.read().strip().lower()
         except OSError:
             m = ""
@@ -561,21 +561,21 @@ def _resolve_mode(flag: Optional[str]) -> str:
 def cmd_hook(args: argparse.Namespace) -> int:
     """Claude Code PreToolUse gate — the live seam.
 
-    Judges the PENDING tool call against everything Airlock has already seen in
-    this session (fed by ``airlock watch``; see :mod:`airlock.session`). The
+    Judges the PENDING tool call against everything Stopgate has already seen in
+    this session (fed by ``stopgate watch``; see :mod:`stopgate.session`). The
     ruling is computed on a COPY of the session state, so judging an action can
     never rewrite history.
 
-    Modes — ``--mode``, else ``$AIRLOCK_MODE``, else ``~/.airlock-mode``, else enforce:
+    Modes — ``--mode``, else ``$STOPGATE_MODE``, else ``~/.stopgate-mode``, else enforce:
 
       observe   log only, ALWAYS allow. Cannot stall an agent. Use it to build trust.
       enforce   a hard-stop surfaces to a human as "ask".
-      --headless (or ``$AIRLOCK_HEADLESS=1``) nobody is at the keyboard, so a
+      --headless (or ``$STOPGATE_HEADLESS=1``) nobody is at the keyboard, so a
                 hard-stop becomes "deny" rather than hanging forever on a prompt
                 no one will ever answer.
 
     Fails OPEN on internal error, deliberately: a broken guardrail must never
-    brick the agent it is watching. Airlock is a safety net, not a guarantee.
+    brick the agent it is watching. Stopgate is a safety net, not a guarantee.
     """
     import json
     import os as _os
@@ -593,7 +593,7 @@ def cmd_hook(args: argparse.Namespace) -> int:
 
     mode = _resolve_mode(getattr(args, "mode", None))
     headless = (bool(getattr(args, "headless", False))
-                or _os.environ.get("AIRLOCK_HEADLESS") == "1")
+                or _os.environ.get("STOPGATE_HEADLESS") == "1")
     sid = event.get("session_id")
 
     try:
@@ -623,7 +623,7 @@ def cmd_watch(args: argparse.Namespace) -> int:
     """Claude Code PostToolUse recorder — where the dataflow moat is actually fed.
 
     PreToolUse fires BEFORE the tool runs, so it never sees a result: no result,
-    no secret bytes, nothing to fingerprint. Without this half, Airlock's live
+    no secret bytes, nothing to fingerprint. Without this half, Stopgate's live
     gate could only ever pattern-match one action at a time — the very thing it
     exists to beat. ``watch`` observes the COMPLETED call (tool + result) and
     advances the persisted session state, so a secret read at step 3 is
@@ -660,7 +660,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
     import json as _json
     res = evaluate()
     if getattr(args, "json", False):
-        out = args.out or "airlock_eval_results.json"
+        out = args.out or "stopgate_eval_results.json"
         with open(out, "w") as f:
             _json.dump(res, f, indent=2, default=list)
         sys.stderr.write("wrote full per-example results to {}\n".format(out))
@@ -687,7 +687,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not getattr(args, "command", None):
         parser.print_help()
         return 0
-    # Last-resort guard. Airlock's core promise is that it never fails open:
+    # Last-resort guard. Stopgate's core promise is that it never fails open:
     # every command already handles its own expected errors (_CliError, OSError)
     # and returns exit code 2. This backstop ensures that even an UNANTICIPATED
     # bug surfaces as a clean one-line error and a non-zero exit, never a Python
@@ -697,13 +697,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         return args.func(args)
     except _CliError as exc:
-        sys.stderr.write("airlock: {}\n".format(exc))
+        sys.stderr.write("stopgate: {}\n".format(exc))
         return 2
     except BrokenPipeError:
-        # Downstream pipe closed (e.g. `airlock report | head`). Not an error.
+        # Downstream pipe closed (e.g. `stopgate report | head`). Not an error.
         return 0
     except Exception as exc:  # noqa: BLE001 — deliberate catch-all backstop
-        sys.stderr.write("airlock: unexpected error: {}\n".format(exc))
+        sys.stderr.write("stopgate: unexpected error: {}\n".format(exc))
         return 2
 
 

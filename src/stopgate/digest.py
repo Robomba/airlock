@@ -1,7 +1,7 @@
-r"""``airlock digest`` — the session receipt you actually want to read.
+r"""``stopgate digest`` — the session receipt you actually want to read.
 
 After an agent session, ``digest`` prints a short receipt. Its whole point is
-different from ``report``: it leads with what Airlock **let through, and why that
+different from ``report``: it leads with what Stopgate **let through, and why that
 was safe** — the proof of work — not only with what it flagged. The pitch line is
 *"Ran N actions unattended. K needed you. 0 touched secrets. Here's the diff."*
 
@@ -153,7 +153,7 @@ def _group_safe(views: List[StepView]) -> List[str]:
 def render_digest(digest: Digest, source_label: str, policy_label: Optional[str]) -> str:
     L: List[str] = []
     L.append("")
-    L.append("  Airlock digest — {}".format(source_label))
+    L.append("  Stopgate digest — {}".format(source_label))
     L.append("  " + "─" * 58)
     L.append("")
 
@@ -204,7 +204,7 @@ def render_digest(digest: Digest, source_label: str, policy_label: Optional[str]
     if policy_label:
         L.append("  Policy: {} (observe-only — never used to unblock).".format(policy_label))
     else:
-        L.append("  No policy loaded — run `airlock learn` to teach Airlock your normal.")
-    L.append("  0 of Airlock's own network calls. Nothing was sent anywhere.")
+        L.append("  No policy loaded — run `stopgate learn` to teach Stopgate your normal.")
+    L.append("  0 of Stopgate's own network calls. Nothing was sent anywhere.")
     L.append("")
     return "\n".join(L)

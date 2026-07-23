@@ -1,7 +1,7 @@
 r"""Parse a Claude Code session / hook log (JSONL) into normalized Actions.
 
 This is the ADAPTER for the ``report`` command: it turns whatever the agent
-already wrote to disk into :class:`~airlock.core.action.Action` objects the
+already wrote to disk into :class:`~stopgate.core.action.Action` objects the
 engine can reason about. It is intentionally forgiving — logs vary across
 Claude Code versions, hooks, and SDKs — and it never raises on a malformed
 line (a security tool that crashes on bad input fails open, which is worse than
@@ -165,7 +165,7 @@ class ParseStats:
 # ({"type":"tool_use","id":...,"name":"Bash","input":{...}}) and its RESULT arrives
 # on a LATER line, keyed by tool_use_id (plus a richer top-level "toolUseResult").
 #
-# Airlock's flat reader saw none of this: pointing `airlock report` at a real
+# Stopgate's flat reader saw none of this: pointing `stopgate report` at a real
 # session printed "0 actions, N unparseable". The flagship, zero-config command
 # did nothing on the only log format its users own. This normalises the transcript
 # into the flat records the rest of the parser already understands -- and, crucially,

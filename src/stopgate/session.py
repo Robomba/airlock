@@ -1,9 +1,9 @@
-r"""Cross-call session state — Airlock's dataflow moat, live.
+r"""Cross-call session state — Stopgate's dataflow moat, live.
 
 A PreToolUse hook is a FRESH PROCESS on every single tool call. A TaintTracker
 built inside it starts empty and dies a millisecond later. Without this module
 the live gate can therefore only ever judge ONE action in isolation — which
-quietly demotes Airlock to the keyword-style matcher it exists to beat: "read
+quietly demotes Stopgate to the keyword-style matcher it exists to beat: "read
 the .env at step 3, POST it to an unknown host at step 19" would sail straight
 through, because step 19 looks innocent on its own.
 
@@ -11,9 +11,9 @@ So the tracker is persisted between calls, keyed by the agent's session id.
 
 Two seams, and you need BOTH:
 
-  * ``PostToolUse`` -> ``airlock watch`` — the only place tool RESULTS exist, and
+  * ``PostToolUse`` -> ``stopgate watch`` — the only place tool RESULTS exist, and
     therefore the only place a secret can actually be captured. Advances state.
-  * ``PreToolUse``  -> ``airlock hook``  — judges the PENDING action against the
+  * ``PreToolUse``  -> ``stopgate hook``  — judges the PENDING action against the
     state captured so far. Evaluates on a COPY, so a ruling never rewrites history.
 
 **The secret bytes are never written to disk.** State holds only rolling-hash
@@ -22,7 +22,7 @@ recognise those bytes trying to leave, not enough to reconstruct them. A stolen
 state file yields nothing.
 
 Best-effort by design: unreadable, corrupt, or oversized state degrades to a
-FRESH tracker rather than bricking the agent. Airlock is a safety net, not a
+FRESH tracker rather than bricking the agent. Stopgate is a safety net, not a
 guarantee.
 """
 
@@ -47,9 +47,9 @@ _SAFE_ID = re.compile(r"[^A-Za-z0-9_.-]")
 
 
 def state_dir() -> str:
-    d = os.environ.get("AIRLOCK_STATE_DIR")
+    d = os.environ.get("STOPGATE_STATE_DIR")
     if not d:
-        d = os.path.join(os.path.expanduser("~"), ".cache", "airlock", "sessions")
+        d = os.path.join(os.path.expanduser("~"), ".cache", "stopgate", "sessions")
     return d
 
 
@@ -66,7 +66,7 @@ def path_for(session_id: Optional[str]) -> str:
 # --- redaction --------------------------------------------------------------- #
 # A TaintEvent's summary is a snippet of what was READ. If the agent read a
 # credentials file, that snippet IS the credential — persisting it verbatim would
-# mean Airlock, a security tool, quietly writing your secrets to disk. So every
+# mean Stopgate, a security tool, quietly writing your secrets to disk. So every
 # summary is scrubbed on the way out: the secret VALUES are masked, while
 # non-secret untrusted text (e.g. an injected instruction in a README) is kept
 # visible, because seeing that is the whole point of the taint graph.
